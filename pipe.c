@@ -12,7 +12,7 @@ int main (void)
 {
 	int epfd, fd, nr_events, i, len;
 	struct epoll_event event, *events;
-	char buf[LINE_MAX];
+	char buf[LINE_MAX], *s;
 
 	fd = open ("p", O_RDWR);
 	if (fd == -1) {
@@ -39,6 +39,9 @@ int main (void)
 		exit (EXIT_FAILURE);
 	}
 
+	/* We read one char at a time, stored in 'buf' at position 's',
+	 * when a '\n' is read we process the line and reset 's' */
+	s = buf;
 	while (1) {
 		nr_events = epoll_wait (epfd, events, MAX_EVENTS, 1000);
 		if (nr_events < 0) {
@@ -52,12 +55,17 @@ int main (void)
 		for (i = 0; i < nr_events ; i++)
 		{
 			if (events[i].events == EPOLLIN) {
-				len = read (fd, buf, LINE_MAX);
-				if (len == -1) { perror("read");
+				len = read (fd, s, sizeof(char));
+				if (len == -1) { 
+					perror("read");
 					exit(EXIT_FAILURE);
-				} else if (len) {
-					buf[len] = '\0';
-					printf("%d:%d:%s", LINE_MAX, (int) strlen (buf), buf);
+				} 
+				if (len) {
+					if (*s == '\n') {
+						*s = '\0';
+						printf("Read line: %s\n", buf);
+						s = buf;
+					} else s++;
 				}
 			}
 		}
