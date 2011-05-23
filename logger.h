@@ -19,5 +19,7 @@ Logger * logger_new (const char * path);
 void logger_close (Logger * self);
 
 void logger_info (Logger * self, char * fmt, ...);
+void logger_warn (Logger * self, char * fmt, ...);
+void logger_crit (Logger * self, char * fmt, ...);
 
 #endif /* LOGGER_H */

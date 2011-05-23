@@ -44,7 +44,30 @@ void logger_close (Logger * self)
 	}
 }
 
+/* Print an info message to the log file: */
 void logger_info (Logger * self, char * fmt, ...)
+{
+	va_list list;
+
+	/* prepare list for va_arg */
+	va_start (list, fmt);
+
+	__logger(self, "INFO: ", fmt, list);
+}
+
+/* Print a warning message to the log file: */
+void logger_warn (Logger * self, char * fmt, ...)
+{
+	va_list list;
+
+	/* prepare list for va_arg */
+	va_start (list, fmt);
+
+	__logger(self, "INFO: ", fmt, list);
+}
+
+/* Print a critical message to the log file: */
+void logger_crit (Logger * self, char * fmt, ...)
 {
 	va_list list;
 
