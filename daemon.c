@@ -27,10 +27,9 @@ Daemon * daemon_new (char * pipe_path, char * log_path)
 	}
 
 	/* Build the pipe's path: */
-	if (pipe_path) {
+	if (pipe_path)
 		daemon->pipe_path = pipe_path;
-		logger_debug (daemon->log, "Using provided pipe's path: '%s'\n", daemon->pipe_path);
-	} else {
+	else {
 		if ((home = getenv ("HOME")) == NULL) {
 			perror ("daemon_new:getenv");
 			exit (EXIT_FAILURE);
@@ -41,16 +40,15 @@ Daemon * daemon_new (char * pipe_path, char * log_path)
 			exit (EXIT_FAILURE);
 		}
 		sprintf (daemon->pipe_path, "%s/%s", home, PIPE_FILENAME);
-		logger_debug (daemon->log, "Using default pipe's path: '%s'\n", daemon->pipe_path);
+		printf("Using default pipe's path: '%s'\n", daemon->pipe_path);
 	}
 
 	daemon->pipe = -1;
 
 	/* Build the log file's path: */
-	if (log_path) {
+	if (log_path)
 		daemon->log_path = log_path;
-		logger_debug (daemon->log, "Using provided log's path: '%s'\n", daemon->pipe_path);
-	} else {
+	else {
 		if ((home = getenv ("HOME")) == NULL) {
 			perror ("daemon_new:getenv");
 			exit (EXIT_FAILURE);
@@ -61,10 +59,11 @@ Daemon * daemon_new (char * pipe_path, char * log_path)
 			exit (EXIT_FAILURE);
 		}
 		sprintf (daemon->log_path, "%s/%s", home, LOG_FILENAME);
-		logger_debug (daemon->log, "Using default log's path: '%s'\n", daemon->pipe_path);
 	}
 
 	daemon->log = NULL;
+
+	daemon->pslist = pslist_new();
 
 	return daemon;
 }
@@ -182,11 +181,13 @@ static void __daemon_parse_line (Daemon * self, char * line)
 	if (strcmp (action, "add") == 0) {
 		/* Check for extra arguments: */
 		if (strtok (NULL, " ")) {
-			/* Exctract arguments from line and create Process: */
+			/* Extract arguments from line and create Process: */
 			p = process_new(line + strlen(action) + 1);
 			s = process_print(p);
 			logger_debug (self->log, "Created Process: '%s'\n", s);
 			free (s);
+			/* Add process to pslist: */
+			pslist_append(self->pslist, p);
 		} else {
 			logger_warn (self->log, "Missing command for add: '%s'\n", line);
 		}

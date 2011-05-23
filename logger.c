@@ -49,6 +49,9 @@ void logger_close (Logger * self)
 /* Print an info message to the log file: */
 void logger_info (Logger * self, char * fmt, ...)
 {
+	if (self == NULL)
+		return ;
+
 	va_list list;
 
 	/* prepare list for va_arg */
@@ -60,6 +63,9 @@ void logger_info (Logger * self, char * fmt, ...)
 /* Print a warning message to the log file: */
 void logger_warn (Logger * self, char * fmt, ...)
 {
+	if (self == NULL)
+		return ;
+
 	va_list list;
 
 	/* prepare list for va_arg */
@@ -71,6 +77,9 @@ void logger_warn (Logger * self, char * fmt, ...)
 /* Print a critical message to the log file: */
 void logger_crit (Logger * self, char * fmt, ...)
 {
+	if (self == NULL)
+		return ;
+
 	va_list list;
 
 	/* prepare list for va_arg */
@@ -82,6 +91,9 @@ void logger_crit (Logger * self, char * fmt, ...)
 /* Print a debug message to the log file if debug is enabled: */
 void logger_debug (Logger * self, char * fmt, ...)
 {
+	if (self == NULL)
+		return ;
+
 	va_list list;
 
 	if (!DEBUG)
