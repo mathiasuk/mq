@@ -12,6 +12,7 @@ Process * process_new (const char * command)
 	}
 
 	process->command = command;
+	process->state = WAITING;
 
 	return process;
 }
