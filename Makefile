@@ -1,5 +1,5 @@
 CC=gcc -Wall -g -lefence
-SOURCES = daemon.c logger.c
+SOURCES = daemon.c logger.c process.c
 OBJS    = ${SOURCES:.c=.o}
 
 mq: main.c ${OBJS}
