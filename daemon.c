@@ -15,35 +15,52 @@
 /* Private methods: */
 static void __daemon_parse_line (Daemon * self, char * line);
 
-Daemon * daemon_new (char * pipe_path)
+Daemon * daemon_new (char * pipe_path, char * log_path)
 {
 	Daemon * daemon = malloc (sizeof (Daemon));
+
+	char * home;
+
 	if (!daemon) {
 		perror ("daemon_new:malloc");
 		exit (EXIT_FAILURE);
 	}
 
-	daemon->pipe = -1;
-
 	/* Build the pipe's path: */
 	if (pipe_path)
 		daemon->pipe_path = pipe_path;
 	else {
-		char * home;
 		if ((home = getenv ("HOME")) == NULL) {
 			perror ("daemon_new:getenv");
 			exit (EXIT_FAILURE);
 		}
-		daemon->pipe_path = malloc (snprintf (NULL, 0, "%s/%s", home, PIPE_PATH));
+		daemon->pipe_path = malloc (snprintf (NULL, 0, "%s/%s", home, PIPE_FILENAME) + 1);
 		if (daemon->pipe_path == NULL) {
 			perror ("daemon_new:malloc");
 			exit (EXIT_FAILURE);
 		}
-		sprintf (daemon->pipe_path, "%s/%s", home, PIPE_PATH);
+		sprintf (daemon->pipe_path, "%s/%s", home, PIPE_FILENAME);
 	}
 
-//	daemon->log = logger_new (NULL);
-	daemon->log = logger_new ("/tmp/mq.log");
+	daemon->pipe = -1;
+
+	/* Build the log file's path: */
+	if (log_path)
+		daemon->log_path = log_path;
+	else {
+		if ((home = getenv ("HOME")) == NULL) {
+			perror ("daemon_new:getenv");
+			exit (EXIT_FAILURE);
+		}
+		daemon->log_path = malloc(snprintf (NULL, 0, "%s/%s", home, LOG_FILENAME) + 1);
+		if (daemon->log_path == NULL) {
+			perror ("daemon_new:malloc");
+			exit (EXIT_FAILURE);
+		}
+		sprintf (daemon->log_path, "%s/%s", home, LOG_FILENAME);
+	}
+
+	daemon->log = NULL;
 
 	return daemon;
 }
@@ -51,6 +68,9 @@ Daemon * daemon_new (char * pipe_path)
 void daemon_setup (Daemon * self)
 {
 	struct epoll_event event;
+
+	/* Setup the logging: */
+	self->log = logger_new (self->log_path);
 
 	/* TODO: check if pipe exists and create it if necessary */
 
