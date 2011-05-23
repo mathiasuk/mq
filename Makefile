@@ -1,6 +1,5 @@
 CC=gcc -Wall -g -lefence
-#CC=gcc -Wall -g
-SOURCES = mq_utils.c mq_daemon.c
+SOURCES = daemon.c logger.c
 OBJS    = ${SOURCES:.c=.o}
 
 mq: main.c ${OBJS}
