@@ -29,7 +29,7 @@ Daemon * daemon_new (char * pipe_path, char * log_path)
 	/* Build the pipe's path: */
 	if (pipe_path) {
 		daemon->pipe_path = pipe_path;
-		logger_debug (self->log, "Using provided pipe's path: '%s'\n", daemon->pipe_path);
+		logger_debug (daemon->log, "Using provided pipe's path: '%s'\n", daemon->pipe_path);
 	} else {
 		if ((home = getenv ("HOME")) == NULL) {
 			perror ("daemon_new:getenv");
@@ -41,7 +41,7 @@ Daemon * daemon_new (char * pipe_path, char * log_path)
 			exit (EXIT_FAILURE);
 		}
 		sprintf (daemon->pipe_path, "%s/%s", home, PIPE_FILENAME);
-		logger_debug (self->log, "Using default pipe's path: '%s'\n", daemon->pipe_path);
+		logger_debug (daemon->log, "Using default pipe's path: '%s'\n", daemon->pipe_path);
 	}
 
 	daemon->pipe = -1;
@@ -49,7 +49,7 @@ Daemon * daemon_new (char * pipe_path, char * log_path)
 	/* Build the log file's path: */
 	if (log_path) {
 		daemon->log_path = log_path;
-		logger_debug (self->log, "Using provided log's path: '%s'\n", daemon->pipe_path);
+		logger_debug (daemon->log, "Using provided log's path: '%s'\n", daemon->pipe_path);
 	} else {
 		if ((home = getenv ("HOME")) == NULL) {
 			perror ("daemon_new:getenv");
@@ -61,7 +61,7 @@ Daemon * daemon_new (char * pipe_path, char * log_path)
 			exit (EXIT_FAILURE);
 		}
 		sprintf (daemon->log_path, "%s/%s", home, LOG_FILENAME);
-		logger_debug (self->log, "Using default log's path: '%s'\n", daemon->pipe_path);
+		logger_debug (daemon->log, "Using default log's path: '%s'\n", daemon->pipe_path);
 	}
 
 	daemon->log = NULL;
