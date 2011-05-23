@@ -7,6 +7,7 @@
 
 #include "daemon.h"
 #include "logger.h"
+#include "process.h"
 
 #define MAX_EVENTS	64
 #define TIMEOUT		1000
@@ -112,8 +113,8 @@ void daemon_run (Daemon * self)
 
 static void __daemon_parse_line (Daemon * self, char * line)
 {
-	char * action;
-	char * line_d;
+	char * action, * line_d, * s;
+	Process * p;
 
 	if (line == NULL)
 		return ;
@@ -138,6 +139,16 @@ static void __daemon_parse_line (Daemon * self, char * line)
 	action = strtok (line_d, " ");
 
 	if (strcmp (action, "add") == 0) {
+		/* Check for extra arguments: */
+		if (strtok (NULL, " ")) {
+			/* Exctract arguments from line and create Process: */
+			p = process_new(line + strlen(action) + 1);
+			s = process_print(p);
+			logger_debug (self->log, "Created Process: '%s'\n", s);
+			free (s);
+		} else {
+			logger_warn (self->log, "Missing command for add: '%s'\n", line);
+		}
 	} else {
 		logger_warn (self->log, "Unknown action: '%s'\n", line);
 	}

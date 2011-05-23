@@ -20,11 +20,11 @@ Process * process_new (const char * command)
 char * process_print (Process * self)
 {
 	char * ret;
-	if ((ret = malloc (snprintf (NULL, 0, "%30s", self->command))) == NULL) {
+	if ((ret = malloc (snprintf (NULL, 0, "%-30s", self->command))) == NULL) {
 		perror ("process_print:malloc");
 		exit (EXIT_FAILURE);
 	}
-	sprintf (ret, "%30s", self->command);
+	sprintf (ret, "%-30s", self->command);
 
 	return ret;
 }
