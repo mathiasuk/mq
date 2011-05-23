@@ -6,6 +6,8 @@
 
 #include "logger.h"
 
+#define DEBUG	1
+
 /* Private methods: */
 static void __logger (Logger * self, const char * prefix, char * fmt, va_list list);
 
@@ -63,7 +65,7 @@ void logger_warn (Logger * self, char * fmt, ...)
 	/* prepare list for va_arg */
 	va_start (list, fmt);
 
-	__logger(self, "INFO: ", fmt, list);
+	__logger(self, "WARN: ", fmt, list);
 }
 
 /* Print a critical message to the log file: */
@@ -74,10 +76,25 @@ void logger_crit (Logger * self, char * fmt, ...)
 	/* prepare list for va_arg */
 	va_start (list, fmt);
 
-	__logger(self, "INFO: ", fmt, list);
+	__logger(self, "CRIT: ", fmt, list);
+}
+
+/* Print a debug message to the log file if debug is enabled: */
+void logger_debug (Logger * self, char * fmt, ...)
+{
+	va_list list;
+
+	if (!DEBUG)
+		return ;
+
+	/* prepare list for va_arg */
+	va_start (list, fmt);
+
+	__logger(self, "DEBUG: ", fmt, list);
 }
 
 /* Private methods: */
+
 static void __logger (Logger * self, const char * prefix, char * fmt, va_list list)
 {
 	time_t t;
