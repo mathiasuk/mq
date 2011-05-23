@@ -4,7 +4,7 @@
 
 int main (void)
 {
-	Daemon * d = daemon_new();
+	Daemon * d = daemon_new(NULL);
 	daemon_setup(d);
 	daemon_run(d);	
 

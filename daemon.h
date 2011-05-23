@@ -1,7 +1,7 @@
 #ifndef DAEMON_H
 #define DAEMON_H
 
-#define PIPE_PATH "/tmp/mq.pipe"
+#define PIPE_PATH ".mq.pipe"
 
 #include "logger.h"
 
@@ -15,7 +15,7 @@ struct _Daemon
 	int epfd;		                /* epoll fd */
 };
 
-Daemon * daemon_new (void);
+Daemon * daemon_new (char * pipe_path);
 void daemon_run (Daemon * self);
 void daemon_setup (Daemon * self);
 

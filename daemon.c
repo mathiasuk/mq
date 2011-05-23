@@ -15,7 +15,7 @@
 /* Private methods: */
 static void __daemon_parse_line (Daemon * self, char * line);
 
-Daemon * daemon_new (void)
+Daemon * daemon_new (char * pipe_path)
 {
 	Daemon * daemon = malloc (sizeof (Daemon));
 	if (!daemon) {
@@ -24,7 +24,24 @@ Daemon * daemon_new (void)
 	}
 
 	daemon->pipe = -1;
-	daemon->pipe_path = PIPE_PATH;
+
+	/* Build the pipe's path: */
+	if (pipe_path)
+		daemon->pipe_path = pipe_path;
+	else {
+		char * home;
+		if ((home = getenv ("HOME")) == NULL) {
+			perror ("daemon_new:getenv");
+			exit (EXIT_FAILURE);
+		}
+		daemon->pipe_path = malloc (snprintf (NULL, 0, "%s/%s", home, PIPE_PATH));
+		if (daemon->pipe_path == NULL) {
+			perror ("daemon_new:malloc");
+			exit (EXIT_FAILURE);
+		}
+		sprintf (daemon->pipe_path, "%s/%s", home, PIPE_PATH);
+	}
+
 //	daemon->log = logger_new (NULL);
 	daemon->log = logger_new ("/tmp/mq.log");
 
