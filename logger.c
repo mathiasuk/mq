@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include <time.h>
 
 #include "logger.h"
 
@@ -50,32 +51,42 @@ void logger_info (Logger * self, char * fmt, ...)
 	/* prepare list for va_arg */
 	va_start (list, fmt);
 
-	__logger(self, "INFO", fmt, list);
+	__logger(self, "INFO: ", fmt, list);
 }
 
 /* Private methods: */
 static void __logger (Logger * self, const char * prefix, char * fmt, va_list list)
 {
-	char * fmt_prefix;
+	time_t t;
+	struct tm * tm;
+	char * fmt_full;
+	char time_str[200];
 
-	/* Add prefix to fmt if necessary: */
-	if (prefix) {
-		fmt_prefix = malloc (snprintf (NULL, 0, "%s %s", fmt, prefix) + 1);
-		sprintf(fmt_prefix, "%s %s", fmt, prefix);
-		if (!fmt_prefix) {
-			perror ("logger:malloc");
-			exit (EXIT_FAILURE);
-		}
-		if (sprintf (fmt_prefix, "%s: %s", prefix, fmt) < 0) {
-			perror ("logger:sprintf");
-			exit (EXIT_FAILURE);
-		}
+	/* Get the local time as a string: */
+	t = time (NULL);
+	tm = localtime (&t);
+	if (!tm) {
+		perror ("__logger:localtime");
+		exit (EXIT_FAILURE);
 	}
-	else
-		fmt_prefix = fmt;
+	if (strftime (time_str, sizeof (time_str), "%b %e %H:%M:%S ", tm) == 0) {
+		perror ("__logger:strftime");
+		exit (EXIT_FAILURE);
+	}
 
-	if (vfprintf (self->stream, fmt_prefix, list) < 0) {
-		perror ("logger_info:vfprintf");
+	/* Prepend timestamp (and prefix if necessary) to fmt: */
+	fmt_full = malloc (snprintf (NULL, 0, "%s%s%s", time_str, prefix, fmt) + 1);
+	if (!fmt_full) {
+		perror ("__logger:malloc");
+		exit (EXIT_FAILURE);
+	}
+	if (sprintf (fmt_full, "%s%s%s", time_str, prefix, fmt) < 0) {
+		perror ("__logger:sprintf");
+		exit (EXIT_FAILURE);
+	}
+
+	if (vfprintf (self->stream, fmt_full, list) < 0) {
+		perror ("__logger_info:vfprintf");
 		exit (EXIT_FAILURE);
 	}
 }

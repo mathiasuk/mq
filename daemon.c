@@ -21,5 +21,6 @@ Daemon * daemon_new (void)
 
 void daemon_run (Daemon * self)
 {
-	logger_info(self->log, "This is a test: %d\n", 3);
+	logger_info(self->log, "This is a test");
+	return ;
 }
