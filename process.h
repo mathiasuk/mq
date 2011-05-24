@@ -1,10 +1,13 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
+#include <unistd.h>
+
 typedef enum {
 	WAITING,
 	RUNNING,
 	STOPPED,
+	KILLED,
 	DONE,
 } PsState;
 
@@ -14,6 +17,7 @@ struct _Process
 {
 	const char * command;
 	PsState state;
+	pid_t pid;
 };
 
 Process * process_new (const char * command);

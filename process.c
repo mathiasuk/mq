@@ -13,6 +13,7 @@ Process * process_new (const char * command)
 
 	process->command = command;
 	process->state = WAITING;
+	process->pid = 0;
 
 	return process;
 }
