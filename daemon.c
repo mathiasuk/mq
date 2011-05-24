@@ -40,7 +40,6 @@ Daemon * daemon_new (char * pipe_path, char * log_path)
 			exit (EXIT_FAILURE);
 		}
 		sprintf (daemon->pipe_path, "%s/%s", home, PIPE_FILENAME);
-		printf("Using default pipe's path: '%s'\n", daemon->pipe_path);
 	}
 
 	daemon->pipe = -1;
@@ -71,6 +70,7 @@ Daemon * daemon_new (char * pipe_path, char * log_path)
 void daemon_setup (Daemon * self)
 {
 	struct epoll_event event;
+	pid_t pid;
 
 	/* Setup the logging: */
 	self->log = logger_new (self->log_path);
@@ -98,6 +98,42 @@ void daemon_setup (Daemon * self)
 		perror ("daemon_setup:epoll_ctl");
 		exit (EXIT_FAILURE);
 	}
+
+	/* Daemonize: */
+
+	/* Create new process */
+	pid = fork ();
+	if (pid == -1) {
+		perror ("daemon_setup:fork");
+		exit (EXIT_FAILURE);
+	} else if (pid != 0)
+		exit (EXIT_SUCCESS);
+
+	/* Create new session and process group: */
+	if (setsid () == -1) {
+		/* TODO: add "perror-like" logger */
+		logger_crit (self->log, "daemon_setup:setsid\n");
+		exit (EXIT_FAILURE);
+	}
+
+	/* Set the working directory to the root directory: */
+	if (chdir ("/") == -1) {
+		/* TODO: add "perror-like" logger */
+		logger_crit (self->log, "daemon_setup:chdir\n");
+		exit (EXIT_FAILURE);
+	}
+
+	/* Close stdin, stdout, stderr: */
+	close (0);
+	close (1);
+	close (2);
+
+	/* redirect stdin, stdout, stderr to /dev/null: */
+	open ("/dev/null", O_RDWR);		/* stdin */
+	dup (0);						/* stdout */
+	dup (0);						/* stderr */
+
+	logger_info (self->log, "Daemon started with pid: %d\n", getpid ());
 }
 
 void daemon_run (Daemon * self)
