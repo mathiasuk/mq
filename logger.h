@@ -1,10 +1,6 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
-#define LOGGER_PATH "/var/tmp/mq.log"
-
-/* TODO: is LOGGER_PATH working? */
-
 #include <stdio.h>
 
 typedef struct _Logger Logger;

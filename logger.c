@@ -19,11 +19,8 @@ Logger * logger_new (const char * path)
 		exit (EXIT_FAILURE);
 	}
 
-	/* Set the path (or use the default: */
-	if (path)
-		logger->path = path;
-	else
-		logger->path = LOGGER_PATH;
+	/* Set the path: */
+	logger->path = path;
 
 	/* Open the log file: */
 	logger->stream = fopen (path, "a");
