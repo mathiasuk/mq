@@ -22,5 +22,6 @@ struct _Process
 
 Process * process_new (const char * command);
 char * process_print (Process * self);
+int process_run (Process * self);
 
 #endif /* PROCESS_H */

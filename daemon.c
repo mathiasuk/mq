@@ -217,13 +217,18 @@ static void __daemon_parse_line (Daemon * self, char * line)
 	if (strcmp (action, "add") == 0) {
 		/* Check for extra arguments: */
 		if (strtok (NULL, " ")) {
-			/* Extract arguments from line and create Process: */
+			/* Create Process: 
+			 * "line + strlen(action) + 1" skips the "add " from the line*/
 			p = process_new(line + strlen(action) + 1);
 			s = process_print(p);
 			logger_debug (self->log, "Created Process: '%s'\n", s);
 			free (s);
 			/* Add process to pslist: */
 			pslist_append(self->pslist, p);
+			/* FIXME: remove this */
+			process_run(p);
+			logger_debug (self->log, "Running Process: '%d'\n", p->pid);
+			/* End of FIXME */
 		} else {
 			logger_warn (self->log, "Missing command for add: '%s'\n", line);
 		}
