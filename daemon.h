@@ -22,5 +22,6 @@ struct _Daemon
 Daemon * daemon_new (char * pipe_path, char * log_path);
 void daemon_run (Daemon * self);
 void daemon_setup (Daemon * self);
+void daemon_stop (Daemon * self);
 
 #endif /* DAEMON_H */

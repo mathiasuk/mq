@@ -184,6 +184,19 @@ void daemon_run (Daemon * self)
 	return ;
 }
 
+/* Stop the daemon: */
+void daemon_stop (Daemon * self)
+{
+	/* TODO: kill all processes */
+
+	logger_info (self->log, "Shutting daemon down");
+
+	close (self->pipe);
+	logger_close(self->log);
+
+	exit (EXIT_SUCCESS);
+}
+
 
 /* Private methods: */
 
@@ -232,8 +245,9 @@ static void __daemon_parse_line (Daemon * self, char * line)
 		} else {
 			logger_warn (self->log, "Missing command for add: '%s'\n", line);
 		}
+	} else if (strcmp (action, "exit") == 0) {
+		daemon_stop (self);
 	} else {
 		logger_warn (self->log, "Unknown action: '%s'\n", line);
 	}
-
 }
