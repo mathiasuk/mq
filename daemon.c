@@ -79,10 +79,8 @@ void daemon_setup (Daemon * self)
 
 	/* Open the pipe: */
 	self->pipe = open (self->pipe_path, O_RDWR);
-	if (self->pipe == -1) {
-		perror ("daemon_setup:open");
-		exit (EXIT_FAILURE);
-	}
+	if (self->pipe == -1)
+		logger_log (self->log, CRITICAL, "daemon_setup:open\n");
 
 	/* Create the epoll fd: */
 	self->epfd = epoll_create (5);
@@ -110,18 +108,12 @@ void daemon_setup (Daemon * self)
 		exit (EXIT_SUCCESS);
 
 	/* Create new session and process group: */
-	if (setsid () == -1) {
-		/* TODO: add "perror-like" logger */
-		logger_crit (self->log, "daemon_setup:setsid\n");
-		exit (EXIT_FAILURE);
-	}
+	if (setsid () == -1)
+		logger_log (self->log, CRITICAL, "daemon_setup:setsid\n");
 
 	/* Set the working directory to the root directory: */
-	if (chdir ("/") == -1) {
-		/* TODO: add "perror-like" logger */
-		logger_crit (self->log, "daemon_setup:chdir\n");
-		exit (EXIT_FAILURE);
-	}
+	if (chdir ("/") == -1)
+		logger_log (self->log, CRITICAL, "daemon_setup:chdir\n");
 
 	/* Close stdin, stdout, stderr: */
 	close (0);
@@ -133,7 +125,7 @@ void daemon_setup (Daemon * self)
 	dup (0);						/* stdout */
 	dup (0);						/* stderr */
 
-	logger_info (self->log, "Daemon started with pid: %d\n", getpid ());
+	logger_log (self->log, INFO, "Daemon started with pid: %d\n", getpid ());
 }
 
 void daemon_run (Daemon * self)
@@ -173,7 +165,7 @@ void daemon_run (Daemon * self)
 				if (len) {
 					if (*s == '\n') {
 						*s = '\0';
-						logger_debug (self->log, "Read line: '%s'\n", buf);
+						logger_log (self->log, DEBUG, "Read line: '%s'\n", buf);
 						__daemon_parse_line(self, buf);
 						s = buf;
 					} else s++;
@@ -189,10 +181,10 @@ void daemon_stop (Daemon * self)
 {
 	/* TODO: kill all processes */
 
-	logger_info (self->log, "Shutting daemon down");
+	logger_log (self->log, INFO, "Shutting daemon down");
 
 	close (self->pipe);
-	logger_close(self->log);
+	logger_close (self->log);
 
 	exit (EXIT_SUCCESS);
 }
@@ -234,20 +226,20 @@ static void __daemon_parse_line (Daemon * self, char * line)
 			 * "line + strlen(action) + 1" skips the "add " from the line*/
 			p = process_new(line + strlen(action) + 1);
 			s = process_print(p);
-			logger_debug (self->log, "Created Process: '%s'\n", s);
+			logger_log (self->log, DEBUG, "Created Process: '%s'\n", s);
 			free (s);
 			/* Add process to pslist: */
 			pslist_append(self->pslist, p);
 			/* FIXME: remove this */
 			process_run(p);
-			logger_debug (self->log, "Running Process: '%d'\n", p->pid);
+			logger_log (self->log, DEBUG, "Running Process: '%d'\n", p->pid);
 			/* End of FIXME */
 		} else {
-			logger_warn (self->log, "Missing command for add: '%s'\n", line);
+			logger_log (self->log, WARNING, "Missing command for add: '%s'\n", line);
 		}
 	} else if (strcmp (action, "exit") == 0) {
 		daemon_stop (self);
 	} else {
-		logger_warn (self->log, "Unknown action: '%s'\n", line);
+		logger_log (self->log, WARNING, "Unknown action: '%s'\n", line);
 	}
 }

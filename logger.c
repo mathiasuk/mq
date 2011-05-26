@@ -3,14 +3,21 @@
 #include <stdarg.h>
 #include <string.h>
 #include <time.h>
+#include <errno.h>
+
 
 #include "logger.h"
 
-#define DEBUG	1
+#define DEBUGGING	1
 
 /* Private methods: */
 static void __logger (Logger * self, const char * prefix, char * fmt, va_list list);
 
+/* 
+ * Initialise the logger
+ * args:   path to the log file
+ * return: void
+ */
 Logger * logger_new (const char * path)
 {
 	Logger * logger = malloc (sizeof (Logger));
@@ -35,6 +42,11 @@ Logger * logger_new (const char * path)
 	return logger;
 }
 
+/*
+ * Close the logging file
+ * args:   self
+ * return: void
+ */
 void logger_close (Logger * self)
 {
 	if (fclose (self->stream)) {
@@ -43,63 +55,56 @@ void logger_close (Logger * self)
 	}
 }
 
-/* Print an info message to the log file: */
-void logger_info (Logger * self, char * fmt, ...)
+/* 
+ * Print a message to the log file,
+ * if level is CRITICAL then also prints last errnum message
+ * args:   self, log level, printf style strings and args
+ * return: void
+ */
+void logger_log (Logger * self, LogLevel level, char * fmt, ...)
 {
 	if (self == NULL)
 		return ;
 
 	va_list list;
+	char * level_str;
+	char * s_err;
+
+	switch (level)
+	{
+		case INFO:
+			level_str = "INFO: ";
+			break;
+		case WARNING:
+			level_str = "WARNING: ";
+			break;
+		case CRITICAL:
+			s_err = strerror(errno);
+			level_str = malloc (snprintf (NULL, 0, "%s: (%s), ", "CRITICAL",
+						                  s_err) + 1);
+			if (!level_str) {
+				perror ("logger_log:malloc");
+				exit (EXIT_FAILURE);
+			}
+			sprintf (level_str, "%s: (%s), ", "CRITICAL", s_err);
+			break;
+		case DEBUG:
+			/* Debug messages are only displayed if DEBUGGING is on: */
+			if (!DEBUGGING)
+				return;
+			level_str = "DEBUG: ";
+			break;
+		default:
+			level_str = "";
+	}
 
 	/* prepare list for va_arg */
 	va_start (list, fmt);
 
-	__logger(self, "INFO: ", fmt, list);
-}
+	__logger (self, level_str, fmt, list);
 
-/* Print a warning message to the log file: */
-void logger_warn (Logger * self, char * fmt, ...)
-{
-	if (self == NULL)
-		return ;
-
-	va_list list;
-
-	/* prepare list for va_arg */
-	va_start (list, fmt);
-
-	__logger(self, "WARN: ", fmt, list);
-}
-
-/* Print a critical message to the log file: */
-void logger_crit (Logger * self, char * fmt, ...)
-{
-	if (self == NULL)
-		return ;
-
-	va_list list;
-
-	/* prepare list for va_arg */
-	va_start (list, fmt);
-
-	__logger(self, "CRIT: ", fmt, list);
-}
-
-/* Print a debug message to the log file if debug is enabled: */
-void logger_debug (Logger * self, char * fmt, ...)
-{
-	if (self == NULL)
-		return ;
-
-	va_list list;
-
-	if (!DEBUG)
-		return ;
-
-	/* prepare list for va_arg */
-	va_start (list, fmt);
-
-	__logger(self, "DEBUG: ", fmt, list);
+	if (level == CRITICAL)
+		exit (EXIT_FAILURE);
 }
 
 /* Private methods: */
