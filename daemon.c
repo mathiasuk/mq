@@ -228,6 +228,8 @@ static void __daemon_parse_line (Daemon * self, char * line)
 	/* Parse the action (first word of the line): */
 	action = strtok (line_d, " ");
 
+	/* TODO: split each action in its own private method */
+
 	if (strcmp (action, "add") == 0) {
 		/* Check for extra arguments: */
 		if (strtok (NULL, " ")) {
@@ -257,6 +259,10 @@ static void __daemon_parse_line (Daemon * self, char * line)
 		}
 	} else if (strcmp (action, "exit") == 0) {
 		daemon_stop (self);
+	} else if (strcmp (action, "debug") == 0) {
+		logger_set_debugging (self->log, 1);
+	} else if (strcmp (action, "nodebug") == 0) {
+		logger_set_debugging (self->log, 0);
 	} else {
 		logger_log (self->log, WARNING, "Unknown action: '%s'\n", line);
 	}

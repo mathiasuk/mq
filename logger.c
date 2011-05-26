@@ -8,8 +8,6 @@
 
 #include "logger.h"
 
-#define DEBUGGING	1
-
 /* Private methods: */
 static void __logger (Logger * self, const char * prefix, char * fmt, va_list list);
 
@@ -25,6 +23,9 @@ Logger * logger_new (const char * path)
 		perror ("logger_new:malloc");
 		exit (EXIT_FAILURE);
 	}
+
+	/* Debug messages are off by default */
+	logger->debugging = 0;
 
 	/* Set the path: */
 	logger->path = path;
@@ -51,6 +52,22 @@ void logger_close (Logger * self)
 {
 	if (fclose (self->stream))
 		logger_log (self, CRITICAL, "logger_close:fclose");
+}
+
+/* 
+ * Enable/disable logging of debugging messages
+ * args:   Logger, debugging (0 = false, 1 = true)
+ * return: void
+ */
+void logger_set_debugging (Logger * self, short int debugging)
+{
+	if (debugging) {
+		logger_log (self, INFO, "Enabled debugging messages");
+		self->debugging = 1;
+	} else {
+		logger_log (self, INFO, "Disabled debugging messages");
+		self->debugging = 0;
+	}
 }
 
 /* 
@@ -90,7 +107,7 @@ void logger_log (Logger * self, LogLevel level, char * fmt, ...)
 			break;
 		case DEBUG:
 			/* Debug messages are only displayed if DEBUGGING is on: */
-			if (!DEBUGGING)
+			if (!self->debugging)
 				return;
 			level_str = "DEBUG: ";
 			break;
