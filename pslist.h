@@ -14,6 +14,6 @@ struct _PsList
 };
 
 PsList * pslist_new (void);
-void pslist_append (PsList * self, Process * process);
+int pslist_append (PsList * self, Process * process);
 
 #endif /* PSLIST_H */

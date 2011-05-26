@@ -15,30 +15,30 @@
 /* Private methods: */
 static void __daemon_parse_line (Daemon * self, char * line);
 
+/* 
+ * Create and initialise the Daemon
+ * args:   path to pipe, path to log file
+ * return: Daemon object or NULL on error
+ */
 Daemon * daemon_new (char * pipe_path, char * log_path)
 {
+	char * home;
 	Daemon * daemon = malloc (sizeof (Daemon));
 
-	char * home;
-
-	if (!daemon) {
-		perror ("daemon_new:malloc");
-		exit (EXIT_FAILURE);
-	}
+	if (!daemon)
+		return NULL;
 
 	/* Build the pipe's path: */
 	if (pipe_path)
 		daemon->pipe_path = pipe_path;
 	else {
-		if ((home = getenv ("HOME")) == NULL) {
-			perror ("daemon_new:getenv");
-			exit (EXIT_FAILURE);
-		}
-		daemon->pipe_path = malloc (snprintf (NULL, 0, "%s/%s", home, PIPE_FILENAME) + 1);
-		if (daemon->pipe_path == NULL) {
-			perror ("daemon_new:malloc");
-			exit (EXIT_FAILURE);
-		}
+		if ((home = getenv ("HOME")) == NULL)
+			return NULL;
+		daemon->pipe_path = malloc (snprintf (NULL, 0, "%s/%s", home, 
+					                          PIPE_FILENAME) + 1);
+		if (daemon->pipe_path == NULL)
+			return NULL;
+
 		sprintf (daemon->pipe_path, "%s/%s", home, PIPE_FILENAME);
 	}
 
@@ -48,25 +48,32 @@ Daemon * daemon_new (char * pipe_path, char * log_path)
 	if (log_path)
 		daemon->log_path = log_path;
 	else {
-		if ((home = getenv ("HOME")) == NULL) {
-			perror ("daemon_new:getenv");
-			exit (EXIT_FAILURE);
-		}
+		if ((home = getenv ("HOME")) == NULL)
+			return NULL;
+
 		daemon->log_path = malloc(snprintf (NULL, 0, "%s/%s", home, LOG_FILENAME) + 1);
-		if (daemon->log_path == NULL) {
-			perror ("daemon_new:malloc");
-			exit (EXIT_FAILURE);
-		}
+		if (daemon->log_path == NULL)
+			return NULL;
+
 		sprintf (daemon->log_path, "%s/%s", home, LOG_FILENAME);
 	}
 
 	daemon->log = NULL;
 
 	daemon->pslist = pslist_new();
+	if (daemon->pslist == NULL) {
+		perror ("daemon_new:pslist_new");
+		exit (EXIT_FAILURE);
+	}
 
 	return daemon;
 }
 
+/* 
+ * Setup the daemon (open pipe and setup Logger)
+ * args:   Daemon
+ * return: void
+ */
 void daemon_setup (Daemon * self)
 {
 	struct epoll_event event;
@@ -84,27 +91,22 @@ void daemon_setup (Daemon * self)
 
 	/* Create the epoll fd: */
 	self->epfd = epoll_create (5);
-	if (self->epfd < 0) {
-		perror ("daemon_setup:epoll_create");
-		exit (EXIT_FAILURE);
-	}
+	if (self->epfd < 0)
+		logger_log (self->log, CRITICAL, "daemon_setup:epoll_create");
 
 	/* We want to be notified when there is data to read: */
 	event.data.fd = self->pipe;
 	event.events = EPOLLIN;
-	if (epoll_ctl (self->epfd, EPOLL_CTL_ADD, self->pipe, &event) == -1) {
-		perror ("daemon_setup:epoll_ctl");
-		exit (EXIT_FAILURE);
-	}
+	if (epoll_ctl (self->epfd, EPOLL_CTL_ADD, self->pipe, &event) == -1)
+		logger_log (self->log, CRITICAL, "daemon_setup:epoll_ctl");
 
 	/* Daemonize: */
 
 	/* Create new process */
 	pid = fork ();
-	if (pid == -1) {
-		perror ("daemon_setup:fork");
-		exit (EXIT_FAILURE);
-	} else if (pid != 0)
+	if (pid == -1)
+		logger_log (self->log, CRITICAL, "daemon_setup:fork");
+	else if (pid != 0)
 		exit (EXIT_SUCCESS);
 
 	/* Create new session and process group: */
@@ -128,6 +130,11 @@ void daemon_setup (Daemon * self)
 	logger_log (self->log, INFO, "Daemon started with pid: %d\n", getpid ());
 }
 
+/*
+ * Run the daemon
+ * args:   Daemon
+ * return: void
+ */
 void daemon_run (Daemon * self)
 {
 	struct epoll_event * events;
@@ -135,20 +142,16 @@ void daemon_run (Daemon * self)
 	int i, nr_events, len;
 	 
 	events = malloc (sizeof (struct epoll_event) * MAX_EVENTS);
-	if (!events) {
-		perror ("daemon_run:malloc");
-		exit (EXIT_FAILURE);
-	}
+	if (!events)
+		logger_log (self->log, CRITICAL, "daemon_run:malloc");
 
 	/* We read one char at a time, stored in 'buf' at position 's',
 	 * when a '\n' is read we process the line and reset 's' */
 	s = buf;
 	while (1) {
 		nr_events = epoll_wait (self->epfd, events, MAX_EVENTS, TIMEOUT);
-		if (nr_events < 0) {
-			perror ("daemon_run:epoll_wait");
-			exit (EXIT_FAILURE);
-		}
+		if (nr_events < 0)
+			logger_log (self->log, CRITICAL, "daemon_run:epoll_wait");
 
 		if (nr_events == 0)
 			/* Waited for TIMEOUT ms */
@@ -158,10 +161,8 @@ void daemon_run (Daemon * self)
 		{
 			if (events[i].events == EPOLLIN) {
 				len = read (events[i].data.fd, s, sizeof (char));
-				if (len == -1) { 
-					perror ("daemon_run:read");
-					exit (EXIT_FAILURE);
-				} 
+				if (len == -1)
+					logger_log (self->log, CRITICAL, "daemon_run:read");
 				if (len) {
 					if (*s == '\n') {
 						*s = '\0';
@@ -176,7 +177,11 @@ void daemon_run (Daemon * self)
 	return ;
 }
 
-/* Stop the daemon: */
+/* 
+ * Stop the daemon
+ * args:   Daemon
+ * return: void
+ */
 void daemon_stop (Daemon * self)
 {
 	/* TODO: kill all processes */
@@ -192,6 +197,11 @@ void daemon_stop (Daemon * self)
 
 /* Private methods: */
 
+/*
+ * Parse line and proceed accordingly
+ * args:   Daemon, line to parse
+ * return: void
+ */
 static void __daemon_parse_line (Daemon * self, char * line)
 {
 	char * action, * line_d, * s;
@@ -212,10 +222,9 @@ static void __daemon_parse_line (Daemon * self, char * line)
 		return ;
 
 	/* We duplicate the 'line' string as strtok modifies it: */
-	if ((line_d = strdup (line)) == NULL) {
-		perror ("__daemon_parse_line:strdup:");
-		exit (EXIT_FAILURE);
-	}
+	if ((line_d = strdup (line)) == NULL)
+		logger_log (self->log, CRITICAL, "__daemon_parse_line:strdup:");
+
 	/* Parse the action (first word of the line): */
 	action = strtok (line_d, " ");
 
@@ -225,17 +234,26 @@ static void __daemon_parse_line (Daemon * self, char * line)
 			/* Create Process: 
 			 * "line + strlen(action) + 1" skips the "add " from the line*/
 			p = process_new(line + strlen(action) + 1);
+			if (p == NULL)
+				logger_log (self->log, CRITICAL, 
+						    "__daemon_parse_line:process_new");
 			s = process_print(p);
+			if (s == NULL)
+				logger_log (self->log, CRITICAL,
+							"__daemon_parse_line:process_print");
 			logger_log (self->log, DEBUG, "Created Process: '%s'\n", s);
 			free (s);
 			/* Add process to pslist: */
-			pslist_append(self->pslist, p);
+			if (pslist_append(self->pslist, p))
+				logger_log (self->log, CRITICAL,
+						    "__daemon_parse_line:pslit_append");
 			/* FIXME: remove this */
 			process_run(p);
 			logger_log (self->log, DEBUG, "Running Process: '%d'\n", p->pid);
 			/* End of FIXME */
 		} else {
-			logger_log (self->log, WARNING, "Missing command for add: '%s'\n", line);
+			logger_log (self->log, WARNING, "Missing command for add: '%s'\n", 
+					    line);
 		}
 	} else if (strcmp (action, "exit") == 0) {
 		daemon_stop (self);

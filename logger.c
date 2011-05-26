@@ -14,7 +14,7 @@
 static void __logger (Logger * self, const char * prefix, char * fmt, va_list list);
 
 /* 
- * Initialise the logger
+ * Create and initialise the logger
  * args:   path to the log file
  * return: void
  */
@@ -44,27 +44,27 @@ Logger * logger_new (const char * path)
 
 /*
  * Close the logging file
- * args:   self
+ * args:   Logger
  * return: void
  */
 void logger_close (Logger * self)
 {
-	if (fclose (self->stream)) {
-		perror ("logger_close:fclose");
-		exit (EXIT_FAILURE);
-	}
+	if (fclose (self->stream))
+		logger_log (self, CRITICAL, "logger_close:fclose");
 }
 
 /* 
  * Print a message to the log file,
  * if level is CRITICAL then also prints last errnum message
- * args:   self, log level, printf style strings and args
+ * args:   Logger, log level, printf style strings and args
  * return: void
  */
 void logger_log (Logger * self, LogLevel level, char * fmt, ...)
 {
 	if (self == NULL)
 		return ;
+
+	/* TODO: add \n by default */
 
 	va_list list;
 	char * level_str;

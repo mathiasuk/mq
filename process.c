@@ -6,13 +6,16 @@
 
 #define MAX_ARGS	100		/* Maximum number of args for a command */
 
+/* 
+ * Create a Process object
+ * args:   command line
+ * return: process or NULL on error
+ */
 Process * process_new (const char * command)
 {
 	Process * process = malloc (sizeof (Process));
-	if (!process) {
-		perror ("process_new:malloc");
-		exit (EXIT_FAILURE);
-	}
+	if (!process)
+		return NULL;
 
 	process->command = command;
 	process->state = WAITING;
@@ -21,22 +24,26 @@ Process * process_new (const char * command)
 	return process;
 }
 
-/* Returns a string representation of the process: */
+/* 
+ * Generate a string representation of the process
+ * args:   self
+ * return: string or NULL on error
+ */
 char * process_print (Process * self)
 {
 	char * ret;
-	if ((ret = malloc (snprintf (NULL, 0, "%-30s", self->command))) == NULL) {
-		perror ("process_print:malloc");
-		exit (EXIT_FAILURE);
-	}
+	if ((ret = malloc (snprintf (NULL, 0, "%-30s", self->command))) == NULL)
+		return NULL;
 	sprintf (ret, "%-30s", self->command);
 
 	return ret;
 }
 
-/* Execute the command: 
- * Return: 0 on success */
-
+/* 
+ * Execute the command: 
+ * args:   Process
+ * return: 0 on success
+ */
 int process_run (Process * self)
 {
 	char * args[MAX_ARGS];
