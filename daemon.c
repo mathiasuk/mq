@@ -86,14 +86,14 @@ void daemon_setup (Daemon * self)
 
 	/* Check if pipe_path exists and is a named pipe */
 	if (stat (self->pipe_path, &buf) == -1)
-		logger_log (self->log, CRITICAL, "daemon_setup:stat: '%s'\n", self->pipe_path);
+		logger_log (self->log, CRITICAL, "daemon_setup:stat: '%s'", self->pipe_path);
 	if (!S_ISFIFO (buf.st_mode))
-		logger_log (self->log, CRITICAL, "'%s' is not a named pipe\n", self->pipe_path);
+		logger_log (self->log, CRITICAL, "'%s' is not a named pipe", self->pipe_path);
 
 	/* Open the pipe: */
 	self->pipe = open (self->pipe_path, O_RDWR);
 	if (self->pipe == -1)
-		logger_log (self->log, CRITICAL, "daemon_setup:open\n");
+		logger_log (self->log, CRITICAL, "daemon_setup:open");
 
 	/* Create the epoll fd: */
 	self->epfd = epoll_create (5);
@@ -117,11 +117,11 @@ void daemon_setup (Daemon * self)
 
 	/* Create new session and process group: */
 	if (setsid () == -1)
-		logger_log (self->log, CRITICAL, "daemon_setup:setsid\n");
+		logger_log (self->log, CRITICAL, "daemon_setup:setsid");
 
 	/* Set the working directory to the root directory: */
 	if (chdir ("/") == -1)
-		logger_log (self->log, CRITICAL, "daemon_setup:chdir\n");
+		logger_log (self->log, CRITICAL, "daemon_setup:chdir");
 
 	/* Close stdin, stdout, stderr: */
 	close (0);
@@ -133,7 +133,7 @@ void daemon_setup (Daemon * self)
 	dup (0);						/* stdout */
 	dup (0);						/* stderr */
 
-	logger_log (self->log, INFO, "Daemon started with pid: %d\n", getpid ());
+	logger_log (self->log, INFO, "Daemon started with pid: %d", getpid ());
 }
 
 /*
@@ -172,7 +172,7 @@ void daemon_run (Daemon * self)
 				if (len) {
 					if (*s == '\n') {
 						*s = '\0';
-						logger_log (self->log, DEBUG, "Read line: '%s'\n", buf);
+						logger_log (self->log, DEBUG, "Read line: '%s'", buf);
 						__daemon_parse_line(self, buf);
 						s = buf;
 					} else s++;
@@ -249,7 +249,7 @@ static void __daemon_parse_line (Daemon * self, char * line)
 			if (s == NULL)
 				logger_log (self->log, CRITICAL,
 							"__daemon_parse_line:process_print");
-			logger_log (self->log, DEBUG, "Created Process: '%s'\n", s);
+			logger_log (self->log, DEBUG, "Created Process: '%s'", s);
 			free (s);
 			/* Add process to pslist: */
 			if (pslist_append(self->pslist, p))
@@ -257,10 +257,10 @@ static void __daemon_parse_line (Daemon * self, char * line)
 						    "__daemon_parse_line:pslit_append");
 			/* FIXME: remove this */
 			process_run(p);
-			logger_log (self->log, DEBUG, "Running Process: '%d'\n", p->pid);
+			logger_log (self->log, DEBUG, "Running Process: '%d'", p->pid);
 			/* End of FIXME */
 		} else {
-			logger_log (self->log, WARNING, "Missing command for add: '%s'\n", 
+			logger_log (self->log, WARNING, "Missing command for add: '%s'", 
 					    line);
 		}
 	} else if (strcmp (action, "exit") == 0) {
@@ -270,6 +270,6 @@ static void __daemon_parse_line (Daemon * self, char * line)
 	} else if (strcmp (action, "nodebug") == 0) {
 		logger_set_debugging (self->log, 0);
 	} else {
-		logger_log (self->log, WARNING, "Unknown action: '%s'\n", line);
+		logger_log (self->log, WARNING, "Unknown action: '%s'", line);
 	}
 }

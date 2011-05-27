@@ -81,8 +81,6 @@ void logger_log (Logger * self, LogLevel level, char * fmt, ...)
 	if (self == NULL)
 		return ;
 
-	/* TODO: add \n by default */
-
 	va_list list;
 	char * level_str;
 	char * s_err;
@@ -150,12 +148,12 @@ static void __logger (Logger * self, const char * prefix, char * fmt, va_list li
 	}
 
 	/* Prepend timestamp (and prefix if necessary) to fmt: */
-	fmt_full = malloc (snprintf (NULL, 0, "%s%s%s", time_str, prefix, fmt) + 1);
+	fmt_full = malloc (snprintf (NULL, 0, "%s%s%s\n", time_str, prefix, fmt) + 1);
 	if (!fmt_full) {
 		perror ("__logger:malloc");
 		exit (EXIT_FAILURE);
 	}
-	if (sprintf (fmt_full, "%s%s%s", time_str, prefix, fmt) < 0) {
+	if (sprintf (fmt_full, "%s%s%s\n", time_str, prefix, fmt) < 0) {
 		perror ("__logger:sprintf");
 		exit (EXIT_FAILURE);
 	}
