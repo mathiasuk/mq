@@ -308,8 +308,11 @@ void daemon_run_processes (Daemon * self)
 	/* Get the list of processes waiting */
 	l_waiting  = malloc (pslist_get_nps (self->__pslist, WAITING, NULL) * 
 			             sizeof (int));
-	if (l_waiting == NULL)
+	if (l_waiting == NULL) {
 		logger_log (self->__log, WARNING, "daemon_run_processes:malloc");
+		return ;
+	}
+
 	n_waiting = pslist_get_nps (self->__pslist, WAITING, l_waiting);
 
 	/* Start as many Processes as we have free CPUs */
@@ -327,6 +330,7 @@ void daemon_run_processes (Daemon * self)
 
 	}
 
+	free (l_waiting);
 }
 
 
