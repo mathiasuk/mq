@@ -25,4 +25,6 @@ void daemon_run (Daemon * self);
 void daemon_setup (Daemon * self);
 void daemon_stop (Daemon * self);
 
+void daemon_run_processes (Daemon * self);
+
 #endif /* DAEMON_H */

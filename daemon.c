@@ -262,17 +262,15 @@ static void __daemon_parse_line (Daemon * self, char * line)
 			if (s == NULL)
 				logger_log (self->__log, CRITICAL,
 							"__daemon_parse_line:process_print");
-			logger_log (self->__log, DEBUG, "Created Process: '%s'", s);
 			free (s);
 			/* Add process to pslist */
 			if (pslist_append(self->__pslist, p))
 				logger_log (self->__log, CRITICAL,
 						    "__daemon_parse_line:pslit_append");
-			/* FIXME: remove this */
-			process_run(p);
-			logger_log (self->__log, DEBUG, "Running Process: '%s'",
-						process_str (p));
-			/* End of FIXME */
+			logger_log (self->__log, DEBUG, "Added Process to queue: '%s'", s);
+
+			/* Start processes if any CPUs are available */
+			daemon_run_processes (self);
 		} else {
 			logger_log (self->__log, WARNING, "Missing command for add: '%s'", 
 					    line);
@@ -286,6 +284,49 @@ static void __daemon_parse_line (Daemon * self, char * line)
 	} else {
 		logger_log (self->__log, WARNING, "Unknown action: '%s'", line);
 	}
+}
+
+/*
+ * Run processes in WAITING state if any CPUs available
+ * args:   Daemon
+ * return: void
+ */
+void daemon_run_processes (Daemon * self)
+{
+	int n_running = 0;		/* number of Processes currently running */
+	int n_waiting = 0;		/* number of Processes waiting */
+	int * l_waiting = NULL;	/* array of Processes waiting */
+	Process * p = NULL;
+	int i;
+
+	/* Check if the number of running processes is less than 
+	 * the number of CPUs available */
+	n_running = pslist_get_nps (self->__pslist, RUNNING, NULL);
+	if (n_running >= self->__ncpus)
+		return ;
+
+	/* Get the list of processes waiting */
+	l_waiting  = malloc (pslist_get_nps (self->__pslist, WAITING, NULL) * 
+			             sizeof (int));
+	if (l_waiting == NULL)
+		logger_log (self->__log, WARNING, "daemon_run_processes:malloc");
+	n_waiting = pslist_get_nps (self->__pslist, WAITING, l_waiting);
+
+	/* Start as many Processes as we have free CPUs */
+	for (i = 0; (i < n_waiting) && (n_running <= self->__ncpus); i++)
+	{
+		p = pslist_get_ps (self->__pslist, l_waiting[i]);
+		if (process_run(p) == 0) {
+			logger_log (self->__log, DEBUG, "Running Process: '%s'",
+					process_str (p));
+			n_running++;
+		} else {
+			logger_log (self->__log, WARNING, "Failed to run Process: '%s'",
+					process_str (p));
+		}
+
+	}
+
 }
 
 
