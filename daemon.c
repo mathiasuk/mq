@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "daemon.h"
 #include "logger.h"
@@ -78,11 +79,16 @@ void daemon_setup (Daemon * self)
 {
 	struct epoll_event event;
 	pid_t pid;
+	struct stat buf;
 
 	/* Setup the logging: */
 	self->log = logger_new (self->log_path);
 
-	/* TODO: check if pipe exists and create it if necessary */
+	/* Check if pipe_path exists and is a pipe */
+	if (stat (self->pipe_path, &buf) == -1)
+		logger_log (self->log, CRITICAL, "daemon_setup:stat: '%s'\n", self->pipe_path);
+	if (!S_ISFIFO (buf.st_mode))
+		logger_log (self->log, CRITICAL, "'%s' is not a named pipe\n", self->pipe_path);
 
 	/* Open the pipe: */
 	self->pipe = open (self->pipe_path, O_RDWR);
