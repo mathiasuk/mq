@@ -84,7 +84,7 @@ void daemon_setup (Daemon * self)
 	/* Setup the logging: */
 	self->log = logger_new (self->log_path);
 
-	/* Check if pipe_path exists and is a pipe */
+	/* Check if pipe_path exists and is a named pipe */
 	if (stat (self->pipe_path, &buf) == -1)
 		logger_log (self->log, CRITICAL, "daemon_setup:stat: '%s'\n", self->pipe_path);
 	if (!S_ISFIFO (buf.st_mode))

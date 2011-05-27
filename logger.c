@@ -96,14 +96,18 @@ void logger_log (Logger * self, LogLevel level, char * fmt, ...)
 			level_str = "WARNING: ";
 			break;
 		case CRITICAL:
-			s_err = strerror(errno);
-			level_str = malloc (snprintf (NULL, 0, "%s: (%s), ", "CRITICAL",
-						                  s_err) + 1);
-			if (!level_str) {
-				perror ("logger_log:malloc");
-				exit (EXIT_FAILURE);
-			}
-			sprintf (level_str, "%s: (%s), ", "CRITICAL", s_err);
+			/* If errno is set we include the string describing the error */
+			if (errno != 0) {
+				s_err = strerror(errno);
+				level_str = malloc (snprintf (NULL, 0, "%s: (%s), ", "CRITICAL",
+											s_err) + 1);
+				if (!level_str) {
+					perror ("logger_log:malloc");
+					exit (EXIT_FAILURE);
+				}
+				sprintf (level_str, "%s: (%s), ", "CRITICAL", s_err);
+			} else
+				level_str = "CRITICAL: ";
 			break;
 		case DEBUG:
 			/* Debug messages are only displayed if DEBUGGING is on: */
