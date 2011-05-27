@@ -46,3 +46,43 @@ int pslist_append (PsList * self, Process * process)
 	self->__len++;
 	return 0;
 }
+
+/*
+ * Get the list of processes in a given state
+ * args:   Pslist, state, pointer to a list of indexes
+ * return: number of matching processes or -1 on error
+ *         the pointer to the list of indexes should be freed after usage 
+ */
+int pslist_get_nps (PsList * self, PsState state, int * list)
+{
+	int i, len = 0;
+	Process * p = NULL;
+
+	if (self->__len == 0)
+		return 0;
+
+	for (i = 0; i < self->__len; i++) {
+		p = pslist_get_ps (self, i);
+		if ((state == ANY) || (process_get_state (p) == state)) {
+			if (list)
+				list[len] = i;
+			len++;
+		}
+	}
+
+	return len;
+}
+
+/* 
+ * Get the process at the given index
+ * args:   Pslit, index
+ * return: Process at index, or NULL on error
+ */
+Process * pslist_get_ps (PsList * self, int index)
+{
+	/* Check that the given index is within the range */
+	if ((index < 0) || (index >= self->__len))
+		return NULL;
+
+	return self->__list[index];
+}

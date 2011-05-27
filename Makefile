@@ -1,4 +1,4 @@
-CC=gcc -Wall -g -lefence
+CC=gcc -Wall -g
 SOURCES = daemon.c logger.c process.c pslist.c
 OBJS    = ${SOURCES:.c=.o}
 

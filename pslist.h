@@ -15,5 +15,7 @@ struct _PsList
 
 PsList * pslist_new (void);
 int pslist_append (PsList * self, Process * process);
+int pslist_get_nps (PsList * self, PsState state, int * list);
+Process * pslist_get_ps (PsList * self, int index);
 
 #endif /* PSLIST_H */

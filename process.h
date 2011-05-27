@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 typedef enum {
+	ANY,		/* Matches any other state, used to get list of processes */
 	WAITING,
 	RUNNING,
 	STOPPED,
@@ -23,5 +24,8 @@ struct _Process
 Process * process_new (const char * command);
 char * process_str (Process * self);
 int process_run (Process * self);
+
+PsState process_get_state (Process * self);
+pid_t process_get_pid (Process * self);
 
 #endif /* PROCESS_H */

@@ -12,6 +12,7 @@
 
 #define MAX_EVENTS	64
 #define TIMEOUT		1000
+#define FORK		0
 
 /* Private methods */
 static void __daemon_parse_line (Daemon * self, char * line);
@@ -80,8 +81,10 @@ Daemon * daemon_new (char * pipe_path, char * log_path)
 void daemon_setup (Daemon * self)
 {
 	struct epoll_event event;
-	pid_t pid;
 	struct stat buf;
+#if FORK == 1
+	pid_t pid;
+#endif
 
 	/* Setup the logging */
 	self->__log = logger_new (self->__log_path);
@@ -116,6 +119,7 @@ void daemon_setup (Daemon * self)
 
 	/* Daemonize */
 
+#if FORK == 1
 	/* Create new process */
 	pid = fork ();
 	if (pid == -1)
@@ -130,6 +134,7 @@ void daemon_setup (Daemon * self)
 	/* Set the working directory to the root directory */
 	if (chdir ("/") == -1)
 		logger_log (self->__log, CRITICAL, "daemon_setup:chdir");
+#endif
 
 	/* Close stdin, stdout, stderr */
 	close (0);
@@ -266,7 +271,7 @@ static void __daemon_parse_line (Daemon * self, char * line)
 			/* FIXME: remove this */
 			process_run(p);
 			logger_log (self->__log, DEBUG, "Running Process: '%s'",
-					    process_str (p));
+						process_str (p));
 			/* End of FIXME */
 		} else {
 			logger_log (self->__log, WARNING, "Missing command for add: '%s'", 
@@ -282,3 +287,18 @@ static void __daemon_parse_line (Daemon * self, char * line)
 		logger_log (self->__log, WARNING, "Unknown action: '%s'", line);
 	}
 }
+
+
+/* FIXME: Example of getting list of processes in a state:
+ *
+		int j, k, * list = malloc (pslist_get_nps (self->__pslist, WAITING, NULL) * sizeof (int));
+		if (list == NULL)
+			logger_log (self->__log, CRITICAL, "daemon_run:malloc");
+		k = pslist_get_nps (self->__pslist, WAITING, list);
+		for (j = 0; j < k; j++)
+			logger_log (self->__log, DEBUG, "PID: %d (%d)", 
+						pslist_get_ps(self->__pslist, list[j])->__pid, list[j]);
+		logger_log (self->__log, DEBUG, "Ps queue size: %d", k);
+		free (list);
+*/
+

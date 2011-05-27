@@ -76,3 +76,27 @@ int process_run (Process * self)
 
 	return 1;	/* if we reach this something went wrong*/
 }
+
+/*
+ * Return the process' state
+ * args:   Process
+ * return: PsState or -1 on error
+ */
+PsState process_get_state (Process * self)
+{
+	if (self == NULL)
+		return -1;
+	return self->__state;
+}
+
+/*
+ * Return the process' pid
+ * args:   Process
+ * return: pid or -1 on error
+ */
+pid_t process_get_pid (Process * self)
+{
+	if (self == NULL)
+		return -1;
+	return self->__pid;
+}
