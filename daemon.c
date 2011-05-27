@@ -31,40 +31,40 @@ Daemon * daemon_new (char * pipe_path, char * log_path)
 
 	/* Build the pipe's path */
 	if (pipe_path)
-		daemon->pipe_path = pipe_path;
+		daemon->__pipe_path = pipe_path;
 	else {
 		if ((home = getenv ("HOME")) == NULL)
 			return NULL;
-		daemon->pipe_path = malloc (snprintf (NULL, 0, "%s/%s", home, 
+		daemon->__pipe_path = malloc (snprintf (NULL, 0, "%s/%s", home, 
 					                          PIPE_FILENAME) + 1);
-		if (daemon->pipe_path == NULL)
+		if (daemon->__pipe_path == NULL)
 			return NULL;
 
-		sprintf (daemon->pipe_path, "%s/%s", home, PIPE_FILENAME);
+		sprintf (daemon->__pipe_path, "%s/%s", home, PIPE_FILENAME);
 	}
 
-	daemon->pipe = -1;
+	daemon->__pipe = -1;
 
 	/* Build the log file's path */
 	if (log_path)
-		daemon->log_path = log_path;
+		daemon->__log_path = log_path;
 	else {
 		if ((home = getenv ("HOME")) == NULL)
 			return NULL;
 
-		daemon->log_path = malloc(snprintf (NULL, 0, "%s/%s", home, LOG_FILENAME) + 1);
-		if (daemon->log_path == NULL)
+		daemon->__log_path = malloc(snprintf (NULL, 0, "%s/%s", home, LOG_FILENAME) + 1);
+		if (daemon->__log_path == NULL)
 			return NULL;
 
-		sprintf (daemon->log_path, "%s/%s", home, LOG_FILENAME);
+		sprintf (daemon->__log_path, "%s/%s", home, LOG_FILENAME);
 	}
 
-	daemon->log = NULL;
+	daemon->__log = NULL;
 
-	daemon->ncpus = 0;
+	daemon->__ncpus = 0;
 
-	daemon->pslist = pslist_new();
-	if (daemon->pslist == NULL) {
+	daemon->__pslist = pslist_new();
+	if (daemon->__pslist == NULL) {
 		perror ("daemon_new:pslist_new");
 		exit (EXIT_FAILURE);
 	}
@@ -84,52 +84,52 @@ void daemon_setup (Daemon * self)
 	struct stat buf;
 
 	/* Setup the logging */
-	self->log = logger_new (self->log_path);
+	self->__log = logger_new (self->__log_path);
 
 	/* Find out the number of CPUs */
-	self->ncpus = sysconf (_SC_NPROCESSORS_ONLN);
-	if (self->ncpus < 1)
-		logger_log (self->log, CRITICAL, "daemon_setup: Can't find the number of CPUs");
-	logger_log (self->log, DEBUG, "Found %d CPU(s)", self->ncpus);
+	self->__ncpus = sysconf (_SC_NPROCESSORS_ONLN);
+	if (self->__ncpus < 1)
+		logger_log (self->__log, CRITICAL, "daemon_setup: Can't find the number of CPUs");
+	logger_log (self->__log, DEBUG, "Found %d CPU(s)", self->__ncpus);
 
 	/* Check if pipe_path exists and is a named pipe */
-	if (stat (self->pipe_path, &buf) == -1)
-		logger_log (self->log, CRITICAL, "daemon_setup:stat: '%s'", self->pipe_path);
+	if (stat (self->__pipe_path, &buf) == -1)
+		logger_log (self->__log, CRITICAL, "daemon_setup:stat: '%s'", self->__pipe_path);
 	if (!S_ISFIFO (buf.st_mode))
-		logger_log (self->log, CRITICAL, "'%s' is not a named pipe", self->pipe_path);
+		logger_log (self->__log, CRITICAL, "'%s' is not a named pipe", self->__pipe_path);
 
 	/* Open the pipe */
-	self->pipe = open (self->pipe_path, O_RDWR);
-	if (self->pipe == -1)
-		logger_log (self->log, CRITICAL, "daemon_setup:open");
+	self->__pipe = open (self->__pipe_path, O_RDWR);
+	if (self->__pipe == -1)
+		logger_log (self->__log, CRITICAL, "daemon_setup:open");
 
 	/* Create the epoll fd */
-	self->epfd = epoll_create (5);
-	if (self->epfd < 0)
-		logger_log (self->log, CRITICAL, "daemon_setup:epoll_create");
+	self->__epfd = epoll_create (5);
+	if (self->__epfd < 0)
+		logger_log (self->__log, CRITICAL, "daemon_setup:epoll_create");
 
 	/* We want to be notified when there is data to read */
-	event.data.fd = self->pipe;
+	event.data.fd = self->__pipe;
 	event.events = EPOLLIN;
-	if (epoll_ctl (self->epfd, EPOLL_CTL_ADD, self->pipe, &event) == -1)
-		logger_log (self->log, CRITICAL, "daemon_setup:epoll_ctl");
+	if (epoll_ctl (self->__epfd, EPOLL_CTL_ADD, self->__pipe, &event) == -1)
+		logger_log (self->__log, CRITICAL, "daemon_setup:epoll_ctl");
 
 	/* Daemonize */
 
 	/* Create new process */
 	pid = fork ();
 	if (pid == -1)
-		logger_log (self->log, CRITICAL, "daemon_setup:fork");
+		logger_log (self->__log, CRITICAL, "daemon_setup:fork");
 	else if (pid != 0)
 		exit (EXIT_SUCCESS);
 
 	/* Create new session and process group */
 	if (setsid () == -1)
-		logger_log (self->log, CRITICAL, "daemon_setup:setsid");
+		logger_log (self->__log, CRITICAL, "daemon_setup:setsid");
 
 	/* Set the working directory to the root directory */
 	if (chdir ("/") == -1)
-		logger_log (self->log, CRITICAL, "daemon_setup:chdir");
+		logger_log (self->__log, CRITICAL, "daemon_setup:chdir");
 
 	/* Close stdin, stdout, stderr */
 	close (0);
@@ -141,7 +141,7 @@ void daemon_setup (Daemon * self)
 	dup (0);						/* stdout */
 	dup (0);						/* stderr */
 
-	logger_log (self->log, INFO, "Daemon started with pid: %d", getpid ());
+	logger_log (self->__log, INFO, "Daemon started with pid: %d", getpid ());
 }
 
 /*
@@ -157,15 +157,15 @@ void daemon_run (Daemon * self)
 	 
 	events = malloc (sizeof (struct epoll_event) * MAX_EVENTS);
 	if (!events)
-		logger_log (self->log, CRITICAL, "daemon_run:malloc");
+		logger_log (self->__log, CRITICAL, "daemon_run:malloc");
 
 	/* We read one char at a time, stored in 'buf' at position 's',
 	 * when a '\n' is read we process the line and reset 's' */
 	s = buf;
 	while (1) {
-		nr_events = epoll_wait (self->epfd, events, MAX_EVENTS, TIMEOUT);
+		nr_events = epoll_wait (self->__epfd, events, MAX_EVENTS, TIMEOUT);
 		if (nr_events < 0)
-			logger_log (self->log, CRITICAL, "daemon_run:epoll_wait");
+			logger_log (self->__log, CRITICAL, "daemon_run:epoll_wait");
 
 		if (nr_events == 0)
 			/* Waited for TIMEOUT ms */
@@ -176,11 +176,11 @@ void daemon_run (Daemon * self)
 			if (events[i].events == EPOLLIN) {
 				len = read (events[i].data.fd, s, sizeof (char));
 				if (len == -1)
-					logger_log (self->log, CRITICAL, "daemon_run:read");
+					logger_log (self->__log, CRITICAL, "daemon_run:read");
 				if (len) {
 					if (*s == '\n') {
 						*s = '\0';
-						logger_log (self->log, DEBUG, "Read line: '%s'", buf);
+						logger_log (self->__log, DEBUG, "Read line: '%s'", buf);
 						__daemon_parse_line(self, buf);
 						s = buf;
 					} else s++;
@@ -200,10 +200,10 @@ void daemon_stop (Daemon * self)
 {
 	/* TODO: kill all processes */
 
-	logger_log (self->log, INFO, "Shutting daemon down");
+	logger_log (self->__log, INFO, "Shutting daemon down");
 
-	close (self->pipe);
-	logger_close (self->log);
+	close (self->__pipe);
+	logger_close (self->__log);
 
 	exit (EXIT_SUCCESS);
 }
@@ -237,7 +237,7 @@ static void __daemon_parse_line (Daemon * self, char * line)
 
 	/* We duplicate the 'line' string as strtok modifies it */
 	if ((line_d = strdup (line)) == NULL)
-		logger_log (self->log, CRITICAL, "__daemon_parse_line:strdup:");
+		logger_log (self->__log, CRITICAL, "__daemon_parse_line:strdup:");
 
 	/* Parse the action (first word of the line) */
 	action = strtok (line_d, " ");
@@ -251,34 +251,34 @@ static void __daemon_parse_line (Daemon * self, char * line)
 			 * "line + strlen(action) + 1" skips the "add " from the line*/
 			p = process_new(line + strlen(action) + 1);
 			if (p == NULL)
-				logger_log (self->log, CRITICAL, 
+				logger_log (self->__log, CRITICAL, 
 						    "__daemon_parse_line:process_new");
 			s = process_str(p);
 			if (s == NULL)
-				logger_log (self->log, CRITICAL,
+				logger_log (self->__log, CRITICAL,
 							"__daemon_parse_line:process_print");
-			logger_log (self->log, DEBUG, "Created Process: '%s'", s);
+			logger_log (self->__log, DEBUG, "Created Process: '%s'", s);
 			free (s);
 			/* Add process to pslist */
-			if (pslist_append(self->pslist, p))
-				logger_log (self->log, CRITICAL,
+			if (pslist_append(self->__pslist, p))
+				logger_log (self->__log, CRITICAL,
 						    "__daemon_parse_line:pslit_append");
 			/* FIXME: remove this */
 			process_run(p);
-			logger_log (self->log, DEBUG, "Running Process: '%s'",
+			logger_log (self->__log, DEBUG, "Running Process: '%s'",
 					    process_str (p));
 			/* End of FIXME */
 		} else {
-			logger_log (self->log, WARNING, "Missing command for add: '%s'", 
+			logger_log (self->__log, WARNING, "Missing command for add: '%s'", 
 					    line);
 		}
 	} else if (strcmp (action, "exit") == 0) {
 		daemon_stop (self);
 	} else if (strcmp (action, "debug") == 0) {
-		logger_set_debugging (self->log, 1);
+		logger_set_debugging (self->__log, 1);
 	} else if (strcmp (action, "nodebug") == 0) {
-		logger_set_debugging (self->log, 0);
+		logger_set_debugging (self->__log, 0);
 	} else {
-		logger_log (self->log, WARNING, "Unknown action: '%s'", line);
+		logger_log (self->__log, WARNING, "Unknown action: '%s'", line);
 	}
 }

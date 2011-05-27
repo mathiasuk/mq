@@ -11,13 +11,13 @@ typedef struct _Daemon Daemon;
 
 struct _Daemon 
 {
-	int pipe;
-	char * pipe_path;
-	char * log_path;
-	Logger * log;
-	int epfd;		                /* epoll fd */
-	PsList * pslist;				/* Process list */
-	long ncpus;						/* Number of available CPUs */
+	char * __pipe_path;
+	int __pipe;
+	char * __log_path;
+	Logger * __log;
+	int __epfd;		                /* epoll fd */
+	PsList * __pslist;				/* Process list */
+	long __ncpus;						/* Number of available CPUs */
 };
 
 Daemon * daemon_new (char * pipe_path, char * log_path);
