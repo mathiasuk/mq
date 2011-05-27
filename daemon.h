@@ -16,7 +16,8 @@ struct _Daemon
 	char * log_path;
 	Logger * log;
 	int epfd;		                /* epoll fd */
-	PsList * pslist;
+	PsList * pslist;				/* Process list */
+	long ncpus;						/* Number of available CPUs */
 };
 
 Daemon * daemon_new (char * pipe_path, char * log_path);

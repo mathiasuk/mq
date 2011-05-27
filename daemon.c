@@ -13,7 +13,7 @@
 #define MAX_EVENTS	64
 #define TIMEOUT		1000
 
-/* Private methods: */
+/* Private methods */
 static void __daemon_parse_line (Daemon * self, char * line);
 
 /* 
@@ -29,7 +29,7 @@ Daemon * daemon_new (char * pipe_path, char * log_path)
 	if (!daemon)
 		return NULL;
 
-	/* Build the pipe's path: */
+	/* Build the pipe's path */
 	if (pipe_path)
 		daemon->pipe_path = pipe_path;
 	else {
@@ -45,7 +45,7 @@ Daemon * daemon_new (char * pipe_path, char * log_path)
 
 	daemon->pipe = -1;
 
-	/* Build the log file's path: */
+	/* Build the log file's path */
 	if (log_path)
 		daemon->log_path = log_path;
 	else {
@@ -61,6 +61,8 @@ Daemon * daemon_new (char * pipe_path, char * log_path)
 
 	daemon->log = NULL;
 
+	daemon->ncpus = 0;
+
 	daemon->pslist = pslist_new();
 	if (daemon->pslist == NULL) {
 		perror ("daemon_new:pslist_new");
@@ -71,7 +73,7 @@ Daemon * daemon_new (char * pipe_path, char * log_path)
 }
 
 /* 
- * Setup the daemon (open pipe and setup Logger)
+ * Setup the daemon (open pipe, setup Logger, find number of CPUS)
  * args:   Daemon
  * return: void
  */
@@ -81,8 +83,14 @@ void daemon_setup (Daemon * self)
 	pid_t pid;
 	struct stat buf;
 
-	/* Setup the logging: */
+	/* Setup the logging */
 	self->log = logger_new (self->log_path);
+
+	/* Find out the number of CPUs */
+	self->ncpus = sysconf (_SC_NPROCESSORS_ONLN);
+	if (self->ncpus < 1)
+		logger_log (self->log, CRITICAL, "daemon_setup: Can't find the number of CPUs");
+	logger_log (self->log, DEBUG, "Found %d CPU(s)", self->ncpus);
 
 	/* Check if pipe_path exists and is a named pipe */
 	if (stat (self->pipe_path, &buf) == -1)
@@ -90,23 +98,23 @@ void daemon_setup (Daemon * self)
 	if (!S_ISFIFO (buf.st_mode))
 		logger_log (self->log, CRITICAL, "'%s' is not a named pipe", self->pipe_path);
 
-	/* Open the pipe: */
+	/* Open the pipe */
 	self->pipe = open (self->pipe_path, O_RDWR);
 	if (self->pipe == -1)
 		logger_log (self->log, CRITICAL, "daemon_setup:open");
 
-	/* Create the epoll fd: */
+	/* Create the epoll fd */
 	self->epfd = epoll_create (5);
 	if (self->epfd < 0)
 		logger_log (self->log, CRITICAL, "daemon_setup:epoll_create");
 
-	/* We want to be notified when there is data to read: */
+	/* We want to be notified when there is data to read */
 	event.data.fd = self->pipe;
 	event.events = EPOLLIN;
 	if (epoll_ctl (self->epfd, EPOLL_CTL_ADD, self->pipe, &event) == -1)
 		logger_log (self->log, CRITICAL, "daemon_setup:epoll_ctl");
 
-	/* Daemonize: */
+	/* Daemonize */
 
 	/* Create new process */
 	pid = fork ();
@@ -115,20 +123,20 @@ void daemon_setup (Daemon * self)
 	else if (pid != 0)
 		exit (EXIT_SUCCESS);
 
-	/* Create new session and process group: */
+	/* Create new session and process group */
 	if (setsid () == -1)
 		logger_log (self->log, CRITICAL, "daemon_setup:setsid");
 
-	/* Set the working directory to the root directory: */
+	/* Set the working directory to the root directory */
 	if (chdir ("/") == -1)
 		logger_log (self->log, CRITICAL, "daemon_setup:chdir");
 
-	/* Close stdin, stdout, stderr: */
+	/* Close stdin, stdout, stderr */
 	close (0);
 	close (1);
 	close (2);
 
-	/* redirect stdin, stdout, stderr to /dev/null: */
+	/* redirect stdin, stdout, stderr to /dev/null */
 	open ("/dev/null", O_RDWR);		/* stdin */
 	dup (0);						/* stdout */
 	dup (0);						/* stderr */
@@ -201,7 +209,7 @@ void daemon_stop (Daemon * self)
 }
 
 
-/* Private methods: */
+/* Private methods */
 
 /*
  * Parse line and proceed accordingly
@@ -216,28 +224,28 @@ static void __daemon_parse_line (Daemon * self, char * line)
 	if (line == NULL)
 		return ;
 
-	/* Strip heading whitespaces: */
+	/* Strip heading whitespaces */
 	while (*line == ' ')
 		line++;
 
-	/* Strip trailing whitespaces: */
+	/* Strip trailing whitespaces */
 	while (line[strlen (line)-1] == ' ')
 		line[strlen (line)-1] = '\0';
 
 	if (!strlen (line))
 		return ;
 
-	/* We duplicate the 'line' string as strtok modifies it: */
+	/* We duplicate the 'line' string as strtok modifies it */
 	if ((line_d = strdup (line)) == NULL)
 		logger_log (self->log, CRITICAL, "__daemon_parse_line:strdup:");
 
-	/* Parse the action (first word of the line): */
+	/* Parse the action (first word of the line) */
 	action = strtok (line_d, " ");
 
 	/* TODO: split each action in its own private method */
 
 	if (strcmp (action, "add") == 0) {
-		/* Check for extra arguments: */
+		/* Check for extra arguments */
 		if (strtok (NULL, " ")) {
 			/* Create Process: 
 			 * "line + strlen(action) + 1" skips the "add " from the line*/
@@ -251,7 +259,7 @@ static void __daemon_parse_line (Daemon * self, char * line)
 							"__daemon_parse_line:process_print");
 			logger_log (self->log, DEBUG, "Created Process: '%s'", s);
 			free (s);
-			/* Add process to pslist: */
+			/* Add process to pslist */
 			if (pslist_append(self->pslist, p))
 				logger_log (self->log, CRITICAL,
 						    "__daemon_parse_line:pslit_append");

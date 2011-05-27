@@ -14,7 +14,7 @@ PsList * pslist_new (void)
 	if (!pslist)
 		return NULL;
 
-	/* Initial size is CHUNK_SIZE elements: */
+	/* Initial size is CHUNK_SIZE elements */
 	pslist->list = malloc (CHUNK_SIZE * sizeof (PsList *));
 	if (!pslist->list)
 		return NULL;
@@ -31,7 +31,7 @@ PsList * pslist_new (void)
  */
 int pslist_append (PsList * self, Process * process)
 {
-	/* If the current list is full we extend it by CHUNK_SIZE: */
+	/* If the current list is full we extend it by CHUNK_SIZE */
 	if (self->len % CHUNK_SIZE == 0) {
 		Process ** tmp_list;
 		tmp_list = realloc (self->list, (self->len + CHUNK_SIZE) * sizeof (PsList *));

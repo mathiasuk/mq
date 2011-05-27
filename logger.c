@@ -8,7 +8,7 @@
 
 #include "logger.h"
 
-/* Private methods: */
+/* Private methods */
 static void __logger (Logger * self, const char * prefix, char * fmt, va_list list);
 
 /* 
@@ -25,19 +25,19 @@ Logger * logger_new (const char * path)
 	}
 
 	/* Debug messages are off by default */
-	logger->debugging = 0;
+	logger->debugging = 1; /*FIXME, this should be set to 0 on release */
 
-	/* Set the path: */
+	/* Set the path */
 	logger->path = path;
 
-	/* Open the log file: */
+	/* Open the log file */
 	logger->stream = fopen (path, "a");
 	if (logger->stream == NULL) {
 		perror ("logger_new:fopen");
 		exit (EXIT_FAILURE);
 	}
 
-	/* Set the buffering to "line buffered": */
+	/* Set the buffering to "line buffered" */
 	setlinebuf (logger->stream);
 		
 	return logger;
@@ -108,7 +108,7 @@ void logger_log (Logger * self, LogLevel level, char * fmt, ...)
 				level_str = "CRITICAL: ";
 			break;
 		case DEBUG:
-			/* Debug messages are only displayed if DEBUGGING is on: */
+			/* Debug messages are only displayed if DEBUGGING is on */
 			if (!self->debugging)
 				return;
 			level_str = "DEBUG: ";
@@ -126,7 +126,7 @@ void logger_log (Logger * self, LogLevel level, char * fmt, ...)
 		exit (EXIT_FAILURE);
 }
 
-/* Private methods: */
+/* Private methods */
 
 static void __logger (Logger * self, const char * prefix, char * fmt, va_list list)
 {
@@ -135,7 +135,7 @@ static void __logger (Logger * self, const char * prefix, char * fmt, va_list li
 	char * fmt_full;
 	char time_str[200];
 
-	/* Get the local time as a string: */
+	/* Get the local time as a string */
 	t = time (NULL);
 	tm = localtime (&t);
 	if (!tm) {
@@ -147,7 +147,7 @@ static void __logger (Logger * self, const char * prefix, char * fmt, va_list li
 		exit (EXIT_FAILURE);
 	}
 
-	/* Prepend timestamp (and prefix if necessary) to fmt: */
+	/* Prepend timestamp (and prefix if necessary) to fmt */
 	fmt_full = malloc (snprintf (NULL, 0, "%s%s%s\n", time_str, prefix, fmt) + 1);
 	if (!fmt_full) {
 		perror ("__logger:malloc");

@@ -51,7 +51,7 @@ int process_run (Process * self)
 	int i = 0;
 
 	/* Transform the command line in an array
-	 * of null terminated strings: */
+	 * of null terminated strings */
 	args[i++] = command;
 	while (*command != '\0') {
 		if (*command == ' ') {
@@ -65,10 +65,12 @@ int process_run (Process * self)
 	self->pid = fork ();
 	if (self->pid == -1)
 		return 1;	/* failed */
-	else if (self->pid != 0)
+	else if (self->pid != 0) {
+		self->state = RUNNING;
 		return 0;	/* success */
+	}
 
-	/* Exec the process: */
+	/* Exec the process */
 	execvp (args[0], args);
 
 	return 1;	/* if we reach this something went wrong*/
