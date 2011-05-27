@@ -9,8 +9,8 @@ typedef struct _PsList PsList;
 
 struct _PsList 
 {
-	Process ** list;
-	int len;
+	Process ** __list;
+	int __len;
 };
 
 PsList * pslist_new (void);
