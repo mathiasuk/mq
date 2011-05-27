@@ -15,13 +15,13 @@ typedef struct _Process Process;
 
 struct _Process 
 {
-	const char * command;
-	PsState state;
-	pid_t pid;
+	const char * __command;
+	PsState __state;
+	pid_t __pid;
 };
 
 Process * process_new (const char * command);
-char * process_print (Process * self);
+char * process_str (Process * self);
 int process_run (Process * self);
 
 #endif /* PROCESS_H */

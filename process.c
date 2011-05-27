@@ -17,9 +17,9 @@ Process * process_new (const char * command)
 	if (!process)
 		return NULL;
 
-	process->command = command;
-	process->state = WAITING;
-	process->pid = 0;
+	process->__command = command;
+	process->__state = WAITING;
+	process->__pid = 0;
 
 	return process;
 }
@@ -29,12 +29,13 @@ Process * process_new (const char * command)
  * args:   self
  * return: string or NULL on error
  */
-char * process_print (Process * self)
+char * process_str (Process * self)
 {
 	char * ret;
-	if ((ret = malloc (snprintf (NULL, 0, "%-30s", self->command))) == NULL)
+	/* TODO: only show PID if process is running? */
+	if ((ret = malloc (snprintf (NULL, 0, "%-30s, PID: %d", self->__command, self->__pid))) == NULL)
 		return NULL;
-	sprintf (ret, "%-30s", self->command);
+	sprintf (ret, "%-30s, PID: %d", self->__command, self->__pid);
 
 	return ret;
 }
@@ -47,7 +48,7 @@ char * process_print (Process * self)
 int process_run (Process * self)
 {
 	char * args[MAX_ARGS];
-	char * command = strdup (self->command);
+	char * command = strdup (self->__command);
 	int i = 0;
 
 	/* Transform the command line in an array
@@ -62,11 +63,11 @@ int process_run (Process * self)
 	args[i] = NULL;
 
 	/* Create new process */
-	self->pid = fork ();
-	if (self->pid == -1)
+	self->__pid = fork ();
+	if (self->__pid == -1)
 		return 1;	/* failed */
-	else if (self->pid != 0) {
-		self->state = RUNNING;
+	else if (self->__pid != 0) {
+		self->__state = RUNNING;
 		return 0;	/* success */
 	}
 

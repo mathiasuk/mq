@@ -253,7 +253,7 @@ static void __daemon_parse_line (Daemon * self, char * line)
 			if (p == NULL)
 				logger_log (self->log, CRITICAL, 
 						    "__daemon_parse_line:process_new");
-			s = process_print(p);
+			s = process_str(p);
 			if (s == NULL)
 				logger_log (self->log, CRITICAL,
 							"__daemon_parse_line:process_print");
@@ -265,7 +265,8 @@ static void __daemon_parse_line (Daemon * self, char * line)
 						    "__daemon_parse_line:pslit_append");
 			/* FIXME: remove this */
 			process_run(p);
-			logger_log (self->log, DEBUG, "Running Process: '%d'", p->pid);
+			logger_log (self->log, DEBUG, "Running Process: '%s'",
+					    process_str (p));
 			/* End of FIXME */
 		} else {
 			logger_log (self->log, WARNING, "Missing command for add: '%s'", 
