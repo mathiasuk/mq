@@ -16,8 +16,10 @@ struct _Daemon
 	char * __log_path;
 	Logger * __log;
 	int __epfd;						/* epoll fd */
+	/* TODO: should process list be volatile? */
 	PsList * __pslist;				/* Process list */
 	long __ncpus;					/* Number of available CPUs */
+	sigset_t __blk_chld;			/* Block SIGCHLD */
 };
 
 Daemon * daemon_new (char * pipe_path, char * log_path);

@@ -5,6 +5,8 @@
 #include <limits.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <signal.h>
+#include <errno.h>
 
 #include "daemon.h"
 #include "logger.h"
@@ -16,6 +18,12 @@
 
 /* Private methods */
 static void __daemon_parse_line (Daemon * self, char * line);
+static void __daemon_block_signals (Daemon * self);
+static void __daemon_unblock_signals (Daemon * self);
+
+/* Signal handler */
+void sigchld_handler (int signum);
+void sigterm_handler (int signum);
 
 /* 
  * Create and initialise the Daemon
@@ -117,6 +125,18 @@ void daemon_setup (Daemon * self)
 	if (epoll_ctl (self->__epfd, EPOLL_CTL_ADD, self->__pipe, &event) == -1)
 		logger_log (self->__log, CRITICAL, "daemon_setup:epoll_ctl");
 
+	/* Initialise the signal mask */
+	if (sigemptyset (&self->__blk_chld) == -1)
+		logger_log (self->__log, CRITICAL, "daemon_setup:sigemptyset");
+	if (sigaddset (&self->__blk_chld, SIGCHLD) == -1)
+		logger_log (self->__log, CRITICAL, "daemon_setup:sigaddset");
+
+	/* Attach the signal handlers */
+	if (signal (SIGCHLD, sigchld_handler) == SIG_ERR)
+		logger_log (self->__log, CRITICAL, "daemon_setup:signal");
+	if (signal (SIGTERM, sigterm_handler) == SIG_ERR)
+		logger_log (self->__log, CRITICAL, "daemon_setup:signal");
+
 	/* Daemonize */
 
 #if FORK == 1
@@ -167,10 +187,13 @@ void daemon_run (Daemon * self)
 	/* We read one char at a time, stored in 'buf' at position 's',
 	 * when a '\n' is read we process the line and reset 's' */
 	s = buf;
-	while (1) {
+	for (;;) {
 		nr_events = epoll_wait (self->__epfd, events, MAX_EVENTS, TIMEOUT);
-		if (nr_events < 0)
+		if (nr_events < 0) {
+			if (errno == EINTR) /* call was interrupted by a signal handler */
+				continue ;
 			logger_log (self->__log, CRITICAL, "daemon_run:epoll_wait");
+		}
 
 		if (nr_events == 0)
 			/* Waited for TIMEOUT ms */
@@ -211,6 +234,53 @@ void daemon_stop (Daemon * self)
 	logger_close (self->__log);
 
 	exit (EXIT_SUCCESS);
+}
+
+/*
+ * Run processes in WAITING state if any CPUs available
+ * args:   Daemon
+ * return: void
+ */
+void daemon_run_processes (Daemon * self)
+{
+	int n_running = 0;		/* number of Processes currently running */
+	int n_waiting = 0;		/* number of Processes waiting */
+	int * l_waiting = NULL;	/* array of Processes waiting */
+	Process * p = NULL;
+	int i;
+
+	/* Check if the number of running processes is less than 
+	 * the number of CPUs available */
+	n_running = pslist_get_nps (self->__pslist, RUNNING, NULL);
+	if (n_running >= self->__ncpus)
+		return ;
+
+	/* Get the list of processes waiting */
+	l_waiting  = malloc (pslist_get_nps (self->__pslist, WAITING, NULL) * 
+			             sizeof (int));
+	if (l_waiting == NULL) {
+		logger_log (self->__log, WARNING, "daemon_run_processes:malloc");
+		return ;
+	}
+
+	n_waiting = pslist_get_nps (self->__pslist, WAITING, l_waiting);
+
+	/* Start as many Processes as we have free CPUs */
+	for (i = 0; (i < n_waiting) && (n_running <= self->__ncpus); i++)
+	{
+		p = pslist_get_ps (self->__pslist, l_waiting[i]);
+		if (process_run(p) == 0) {
+			logger_log (self->__log, DEBUG, "Running Process: '%s'",
+					process_str (p));
+			n_running++;
+		} else {
+			logger_log (self->__log, WARNING, "Failed to run Process: '%s'",
+					process_str (p));
+		}
+
+	}
+
+	free (l_waiting);
 }
 
 
@@ -287,63 +357,38 @@ static void __daemon_parse_line (Daemon * self, char * line)
 }
 
 /*
- * Run processes in WAITING state if any CPUs available
+ * Block all signals
  * args:   Daemon
  * return: void
  */
-void daemon_run_processes (Daemon * self)
+static void __daemon_block_signals (Daemon * self)
 {
-	int n_running = 0;		/* number of Processes currently running */
-	int n_waiting = 0;		/* number of Processes waiting */
-	int * l_waiting = NULL;	/* array of Processes waiting */
-	Process * p = NULL;
-	int i;
-
-	/* Check if the number of running processes is less than 
-	 * the number of CPUs available */
-	n_running = pslist_get_nps (self->__pslist, RUNNING, NULL);
-	if (n_running >= self->__ncpus)
-		return ;
-
-	/* Get the list of processes waiting */
-	l_waiting  = malloc (pslist_get_nps (self->__pslist, WAITING, NULL) * 
-			             sizeof (int));
-	if (l_waiting == NULL) {
-		logger_log (self->__log, WARNING, "daemon_run_processes:malloc");
-		return ;
-	}
-
-	n_waiting = pslist_get_nps (self->__pslist, WAITING, l_waiting);
-
-	/* Start as many Processes as we have free CPUs */
-	for (i = 0; (i < n_waiting) && (n_running <= self->__ncpus); i++)
-	{
-		p = pslist_get_ps (self->__pslist, l_waiting[i]);
-		if (process_run(p) == 0) {
-			logger_log (self->__log, DEBUG, "Running Process: '%s'",
-					process_str (p));
-			n_running++;
-		} else {
-			logger_log (self->__log, WARNING, "Failed to run Process: '%s'",
-					process_str (p));
-		}
-
-	}
-
-	free (l_waiting);
+	if (sigprocmask (SIG_BLOCK, &self->__blk_chld, NULL) == -1)
+		logger_log (self->__log, CRITICAL, "__daemon_block_signals:sigprocmask");
 }
 
+/*
+ * Unblock all signals
+ * args:   Daemon
+ * return: void
+ */
+static void __daemon_unblock_signals (Daemon * self)
+{
+	if (sigprocmask (SIG_UNBLOCK, &self->__blk_chld, NULL) == -1)
+		logger_log (self->__log, CRITICAL, "__daemon_block_signals:sigprocmask");
+}
 
-/* FIXME: Example of getting list of processes in a state:
- *
-		int j, k, * list = malloc (pslist_get_nps (self->__pslist, WAITING, NULL) * sizeof (int));
-		if (list == NULL)
-			logger_log (self->__log, CRITICAL, "daemon_run:malloc");
-		k = pslist_get_nps (self->__pslist, WAITING, list);
-		for (j = 0; j < k; j++)
-			logger_log (self->__log, DEBUG, "PID: %d (%d)", 
-						pslist_get_ps(self->__pslist, list[j])->__pid, list[j]);
-		logger_log (self->__log, DEBUG, "Ps queue size: %d", k);
-		free (list);
-*/
+/* Signal handlers */
+void sigchld_handler (int signum)
+{
+	extern Daemon * d;
+	/* FIXME: __log should be made private, or a daemon_log method implemented */
+	logger_log (d->__log, INFO, "Got signal: %d", signum);
+}
 
+void sigterm_handler (int signum)
+{
+	extern Daemon * d;
+	/* FIXME: __log should be made private, or a daemon_log method implemented */
+	logger_log (d->__log, INFO, "Got signal: %d", signum);
+}
