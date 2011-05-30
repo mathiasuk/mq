@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <signal.h>
 
 #include "process.h"
 
@@ -39,6 +40,7 @@ Process * process_new (const char * command)
 	process->__command = command;
 	process->__state = WAITING;
 	process->__pid = 0;
+	process->__ret = 0;
 
 	return process;
 }
@@ -95,6 +97,42 @@ int process_run (Process * self)
 	execvp (args[0], args);
 
 	return 1;	/* if we reach this something went wrong*/
+}
+
+/* 
+ * "Wait" on the process
+ * args:   Process, siginfo_t from signal
+ * return: 0 on sucess
+ */
+int process_wait (Process * self, siginfo_t * siginfo)
+{
+	/* Check signal code */
+	switch (siginfo->si_code)
+	{
+		case CLD_EXITED:
+			self->__state = EXITED;
+			self->__ret = siginfo->si_status;
+			break;
+		case CLD_KILLED:
+			self->__state = KILLED;
+			break;
+		case CLD_DUMPED:
+			self->__state = DUMPED;
+			break;
+		case CLD_STOPPED:
+			/* TODO */
+			break;
+		case CLD_CONTINUED:
+			/* TODO */
+			break;
+		default:
+			/* This should not happen */
+			return 1;
+
+	}
+
+
+	return 0;
 }
 
 /*

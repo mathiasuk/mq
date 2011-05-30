@@ -21,14 +21,16 @@
 #define PROCESS_H
 
 #include <unistd.h>
+#include <signal.h>
 
 typedef enum {
 	ANY,		/* Matches any other state, used to get list of processes */
-	WAITING,
-	RUNNING,
-	STOPPED,
-	KILLED,
-	DONE,
+	WAITING,	/* Waiting to be started */
+	RUNNING,	/* Currently running */
+	EXITED,		/* Exited normally */
+	KILLED,		/* Killed */
+	DUMPED,		/* Terminated abnormally */
+	STOPPED,	/* Stopped */
 } PsState;
 
 typedef struct _Process Process;
@@ -38,11 +40,13 @@ struct _Process
 	const char * __command;
 	PsState __state;
 	pid_t __pid;
+	int __ret;		/* Return value */
 };
 
 Process * process_new (const char * command);
 char * process_str (Process * self);
 int process_run (Process * self);
+int process_wait (Process * self, siginfo_t * siginfo);
 
 PsState process_get_state (Process * self);
 pid_t process_get_pid (Process * self);
