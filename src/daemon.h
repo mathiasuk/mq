@@ -23,6 +23,8 @@
 #define PIPE_FILENAME ".mq.pipe"
 #define LOG_FILENAME ".mq.log"
 
+#include <signal.h>
+
 #include "logger.h"
 #include "pslist.h"
 
@@ -36,7 +38,8 @@ struct _Daemon
 	Logger * __log;
 	int __epfd;						/* epoll fd */
 	/* TODO: should process list be volatile? */
-	PsList * __pslist;				/* Process list */
+	PsList * __pslist;				/* Process list, these should only be accessed while
+									   signals are blocked with __daemon_block_signals */
 	long __ncpus;					/* Number of available CPUs */
 	sigset_t __blk_chld;			/* Block SIGCHLD */
 };
@@ -47,5 +50,6 @@ void daemon_setup (Daemon * self);
 void daemon_stop (Daemon * self);
 
 void daemon_run_processes (Daemon * self);
+void daemon_wait_process (Daemon * self, siginfo_t * siginfo);
 
 #endif /* DAEMON_H */

@@ -41,7 +41,7 @@ static void __daemon_block_signals (Daemon * self);
 static void __daemon_unblock_signals (Daemon * self);
 
 /* Signal handler */
-void sigchld_handler (int signum);
+void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr);
 void sigterm_handler (int signum);
 
 /* 
@@ -109,6 +109,7 @@ void daemon_setup (Daemon * self)
 {
 	struct epoll_event event;
 	struct stat buf;
+	struct sigaction sigchld_action;
 #if FORK == 1
 	pid_t pid;
 #endif
@@ -151,8 +152,12 @@ void daemon_setup (Daemon * self)
 		logger_log (self->__log, CRITICAL, "daemon_setup:sigaddset");
 
 	/* Attach the signal handlers */
-	if (signal (SIGCHLD, sigchld_handler) == SIG_ERR)
-		logger_log (self->__log, CRITICAL, "daemon_setup:signal");
+	sigchld_action.sa_sigaction = sigchld_handler;
+	sigemptyset (&sigchld_action.sa_mask);
+	sigchld_action.sa_flags = SA_SIGINFO;
+
+	if (sigaction (SIGCHLD, &sigchld_action, NULL) == -1)
+		logger_log (self->__log, CRITICAL, "daemon_setup:sigaction");
 	if (signal (SIGTERM, sigterm_handler) == SIG_ERR)
 		logger_log (self->__log, CRITICAL, "daemon_setup:signal");
 
@@ -245,12 +250,18 @@ void daemon_run (Daemon * self)
  */
 void daemon_stop (Daemon * self)
 {
+	/* Block signals */
+	__daemon_block_signals (self);
+
 	/* TODO: kill all processes */
 
 	logger_log (self->__log, INFO, "Shutting daemon down");
 
 	close (self->__pipe);
 	logger_close (self->__log);
+
+	/* Unblock signals */
+	__daemon_unblock_signals (self);
 
 	exit (EXIT_SUCCESS);
 }
@@ -268,17 +279,25 @@ void daemon_run_processes (Daemon * self)
 	Process * p = NULL;
 	int i;
 
+	/* Block signals */
+	__daemon_block_signals (self);
+
 	/* Check if the number of running processes is less than 
 	 * the number of CPUs available */
 	n_running = pslist_get_nps (self->__pslist, RUNNING, NULL);
-	if (n_running >= self->__ncpus)
+	if (n_running >= self->__ncpus) {
+		/* Unblock signals */
+		__daemon_unblock_signals (self);
 		return ;
+	}
 
 	/* Get the list of processes waiting */
 	l_waiting  = malloc (pslist_get_nps (self->__pslist, WAITING, NULL) * 
 			             sizeof (int));
 	if (l_waiting == NULL) {
 		logger_log (self->__log, WARNING, "daemon_run_processes:malloc");
+		/* Unblock signals */
+		__daemon_unblock_signals (self);
 		return ;
 	}
 
@@ -300,8 +319,29 @@ void daemon_run_processes (Daemon * self)
 	}
 
 	free (l_waiting);
+
+	/* Unblock signals */
+	__daemon_unblock_signals (self);
 }
 
+/*
+ * Wait for terminated processes 
+ * args:   Daemon, siginfo from signal
+ * return: void
+ */
+void daemon_wait_process (Daemon * self, siginfo_t * siginfo)
+{
+	/* Block signals */
+	__daemon_block_signals (self);
+
+	if (siginfo->si_signo != SIGCHLD)
+		logger_log (self->__log, CRITICAL, "Expected signal %d, received %d", 
+					SIGCHLD, siginfo->si_signo);
+
+
+	/* Unblock signals */
+	__daemon_unblock_signals (self);
+}
 
 /* Private methods */
 
@@ -398,11 +438,11 @@ static void __daemon_unblock_signals (Daemon * self)
 }
 
 /* Signal handlers */
-void sigchld_handler (int signum)
+void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr)
 {
 	extern Daemon * d;
-	/* FIXME: __log should be made private, or a daemon_log method implemented */
-	logger_log (d->__log, INFO, "Got signal: %d", signum);
+	daemon_wait_process (d, siginfo);
+	/* TODO: add processes if necessary */
 }
 
 void sigterm_handler (int signum)

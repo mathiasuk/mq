@@ -52,7 +52,8 @@ char * process_str (Process * self)
 {
 	char * ret;
 	/* TODO: only show PID if process is running? */
-	if ((ret = malloc (snprintf (NULL, 0, "%-30s, PID: %d", self->__command, self->__pid))) == NULL)
+	if ((ret = malloc (snprintf (NULL, 0, "%-30s, PID: %d", self->__command,
+								 self->__pid))) == NULL)
 		return NULL;
 	sprintf (ret, "%-30s, PID: %d", self->__command, self->__pid);
 
