@@ -36,5 +36,6 @@ PsList * pslist_new (void);
 int pslist_append (PsList * self, Process * process);
 int pslist_get_nps (PsList * self, PsState state, int * list);
 Process * pslist_get_ps (PsList * self, int index);
+Process * pslist_get_ps_by_pid (PsList * self, pid_t pid);
 
 #endif /* PSLIST_H */

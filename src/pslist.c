@@ -105,3 +105,25 @@ Process * pslist_get_ps (PsList * self, int index)
 
 	return self->__list[index];
 }
+
+/* 
+ * Get the process with given PID
+ * args:   Pslit, PID
+ * return: Process with PID, or NULL on error
+ */
+Process * pslist_get_ps_by_pid (PsList * self, pid_t pid)
+{
+	int i;
+	Process * p;
+
+	if (pid < 1)
+		return NULL;
+
+	for (i = 0; i < self->__len; i++)
+		p = pslist_get_ps (self, i);
+		if (process_get_pid (p) == pid)
+			return p;
+
+	/* pid not found */
+	return NULL;
+}
