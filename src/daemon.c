@@ -154,7 +154,9 @@ void daemon_setup (Daemon * self)
 	/* Attach the signal handlers */
 	sigchld_action.sa_sigaction = sigchld_handler;
 	sigemptyset (&sigchld_action.sa_mask);
-	sigchld_action.sa_flags = SA_SIGINFO;
+	/* We use SA_NOCLDWAIT as sa_sigaction will give us all the info regarding
+	 * the Process without waiting for it */
+	sigchld_action.sa_flags = SA_SIGINFO | SA_NOCLDWAIT;
 
 	if (sigaction (SIGCHLD, &sigchld_action, NULL) == -1)
 		logger_log (self->__log, CRITICAL, "daemon_setup:sigaction");
@@ -326,18 +328,31 @@ void daemon_run_processes (Daemon * self)
 
 /*
  * Wait for terminated processes 
- * args:   Daemon, siginfo from signal
+ * args:   Daemon, siginfo_t from signal
  * return: void
  */
 void daemon_wait_process (Daemon * self, siginfo_t * siginfo)
 {
+	Process * p;
+
 	/* Block signals */
 	__daemon_block_signals (self);
 
+	/* Check that we received the expected signal */
 	if (siginfo->si_signo != SIGCHLD)
 		logger_log (self->__log, CRITICAL, "Expected signal %d, received %d", 
 					SIGCHLD, siginfo->si_signo);
 
+	/* Get Process which emitted the signal */
+	p = pslist_get_ps_by_pid (self->__pslist, siginfo->si_pid);
+	if (p == NULL)
+		logger_log (self->__log, CRITICAL,
+					"daemon_wait_process:Can't find Process with pid %d", siginfo->si_pid);
+
+	/* "Wait" on the process */
+	if (process_wait (p, siginfo))
+		logger_log (self->__log, CRITICAL, "daemon_wait_process:process_wait", 
+					siginfo->si_pid);
 
 	/* Unblock signals */
 	__daemon_unblock_signals (self);
@@ -390,7 +405,7 @@ static void __daemon_parse_line (Daemon * self, char * line)
 			s = process_str(p);
 			if (s == NULL)
 				logger_log (self->__log, CRITICAL,
-							"__daemon_parse_line:process_print");
+							"__daemon_parse_line:process_str");
 			free (s);
 			/* Add process to pslist */
 			if (pslist_append(self->__pslist, p))
