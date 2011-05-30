@@ -119,10 +119,11 @@ Process * pslist_get_ps_by_pid (PsList * self, pid_t pid)
 	if (pid < 1)
 		return NULL;
 
-	for (i = 0; i < self->__len; i++)
+	for (i = 0; i < self->__len; i++) {
 		p = pslist_get_ps (self, i);
 		if (process_get_pid (p) == pid)
 			return p;
+	}
 
 	/* pid not found */
 	return NULL;
