@@ -354,6 +354,9 @@ void daemon_wait_process (Daemon * self, siginfo_t * siginfo)
 		logger_log (self->__log, CRITICAL, "daemon_wait_process:process_wait", 
 					siginfo->si_pid);
 
+	logger_log (self->__log, DEBUG, "daemon_wait_process:waited on process (%d)", 
+			siginfo->si_pid);
+
 	/* Unblock signals */
 	__daemon_unblock_signals (self);
 }
@@ -457,7 +460,7 @@ void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr)
 {
 	extern Daemon * d;
 	daemon_wait_process (d, siginfo);
-	/* TODO: add processes if necessary */
+	daemon_run_processes (d);
 }
 
 void sigterm_handler (int signum)
