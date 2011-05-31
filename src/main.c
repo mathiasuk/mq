@@ -30,7 +30,7 @@ int main (void)
 
 	if (client == NULL) {
 		perror ("main:client_new");
-		exit (EXIT_FAILURE);
+		return EXIT_FAILURE;
 	}
 
 	client_run (client);
