@@ -34,7 +34,6 @@ struct _Client
 };
 
 Client * client_new (void);
-int client_setup (Client * self);
 void client_run (Client * self);
 
 #endif /* CLIENT_H */

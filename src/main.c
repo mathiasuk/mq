@@ -33,7 +33,6 @@ int main (void)
 		exit (EXIT_FAILURE);
 	}
 
-	client_setup (client);
 	client_run (client);
 
 	return EXIT_SUCCESS;

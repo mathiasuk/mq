@@ -62,18 +62,9 @@ Client * client_new (void)
 		return NULL;
 	sprintf (client->_log_path, "%s/%s", home, LOG_FILENAME);
 
-	return client;
-}
-
-/* 
- * Setup the client
- * args:   Client
- * return: 0 on success, 1 on failure
- */
-int client_setup (Client * self)
-{
 	/* TODO: parse arguments */
-	return 0;
+
+	return client;
 }
 
 /*
