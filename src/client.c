@@ -87,7 +87,7 @@ void client_run (Client * self)
 		exit (EXIT_FAILURE);
 	}
 
-	if (daemon_setup (d) == 0) {
+	if (d->pid == 0) {
 		/* In daemon*/
 		daemon_run (d);	
 		exit (EXIT_FAILURE);	/* We should never reach this */

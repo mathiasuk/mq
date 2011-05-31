@@ -54,6 +54,9 @@ void sigterm_handler (int signum);
 Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path)
 {
 	Daemon * daemon = malloc (sizeof (Daemon));
+	struct epoll_event event;
+	struct sigaction sigchld_action, sigterm_action;
+	int len;
 
 	if (!daemon)
 		return NULL;
@@ -73,15 +76,49 @@ Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path)
 		return NULL;
 	daemon->_log_path = log_path;
 
-	daemon->_sock = -1;
+	/* Setup the logging */
+	daemon->_log = logger_new (daemon->_log_path);
 
-	daemon->_log = NULL;
+	/* Find out the number of CPUs */
+	daemon->_ncpus = sysconf (_SC_NPROCESSORS_ONLN);
+	if (daemon->_ncpus < 1)
+		logger_log (daemon->_log, CRITICAL,
+					"daemon_setup: Can't find the number of CPUs");
+	logger_log (daemon->_log, DEBUG, "Found %d CPU(s)", daemon->_ncpus);
 
-	daemon->_pid_path = NULL;
+	/* Unlink the socket's path to prevent EINVAL if the file already exist */
+    if (unlink (daemon->_sock_path) == -1) {
+		/* Don't report error if the path didn't exist */
+		if (errno != ENOENT)
+			logger_log (daemon->_log, CRITICAL, "daemon_setup:unlink");
+	}
 
-	daemon->_epfd = -1;
+	/* Open the socket */
+	if ((daemon->_sock = socket (AF_UNIX, SOCK_STREAM, 0)) == -1)
+		logger_log (daemon->_log, CRITICAL, "daemon_setup:socket");
 
-	daemon->_ncpus = 0;
+	/* Bind the socket */
+	daemon->_slocal.sun_family = AF_UNIX;
+    strcpy (daemon->_slocal.sun_path, daemon->_sock_path);
+    len = strlen (daemon->_slocal.sun_path) + sizeof (daemon->_slocal.sun_family);
+    if (bind (daemon->_sock, (struct sockaddr *) &daemon->_slocal, len) == -1)
+		logger_log (daemon->_log, CRITICAL, "daemon_setup:bind: %s",
+					daemon->_sock_path);
+
+	/* Listen on the socket */
+	if (listen (daemon->_sock, BACKLOG) == -1)
+		logger_log (daemon->_log, CRITICAL, "daemon_setup:listen");
+
+	/* Create the epoll fd */
+	daemon->_epfd = epoll_create (5);
+	if (daemon->_epfd < 0)
+		logger_log (daemon->_log, CRITICAL, "daemon_setup:epoll_create");
+
+	/* We want to be notified when there is data to read */
+	event.data.fd = daemon->_sock;
+	event.events = EPOLLIN;
+	if (epoll_ctl (daemon->_epfd, EPOLL_CTL_ADD, daemon->_sock, &event) == -1)
+		logger_log (daemon->_log, CRITICAL, "daemon_setup:epoll_ctl");
 
 	daemon->_pslist = pslist_new ();
 	if (daemon->_pslist == NULL) {
@@ -89,95 +126,34 @@ Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path)
 		exit (EXIT_FAILURE);
 	}
 
-	return daemon;
-}
-
-/* 
- * Setup the daemon (open socket, setup Logger, find number of CPUS)
- * args:   Daemon
- * return: 0 or child pid on success
- */
-int daemon_setup (Daemon * self)
-{
-	int len;
-	struct epoll_event event;
-	struct sigaction sigchld_action, sigterm_action;
-#if FORK == 1
-	pid_t pid;
-#endif
-
-	/* Setup the logging */
-	self->_log = logger_new (self->_log_path);
-
-	/* Find out the number of CPUs */
-	self->_ncpus = sysconf (_SC_NPROCESSORS_ONLN);
-	if (self->_ncpus < 1)
-		logger_log (self->_log, CRITICAL, "daemon_setup: Can't find the number of CPUs");
-	logger_log (self->_log, DEBUG, "Found %d CPU(s)", self->_ncpus);
-
-	/* Unlink the socket's path to prevent EINVAL if the file already exist */
-    if (unlink (self->_sock_path) == -1) {
-		/* Don't report error if the path didn't exist */
-		if (errno != ENOENT)
-			logger_log (self->_log, CRITICAL, "daemon_setup:unlink");
-	}
-
-	/* Open the socket */
-	if ((self->_sock = socket (AF_UNIX, SOCK_STREAM, 0)) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:socket");
-
-	/* Bind the socket */
-	self->_slocal.sun_family = AF_UNIX;
-    strcpy (self->_slocal.sun_path, self->_sock_path);
-    len = strlen (self->_slocal.sun_path) + sizeof (self->_slocal.sun_family);
-    if (bind (self->_sock, (struct sockaddr *) &self->_slocal, len) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:bind: %s", self->_sock_path);
-
-	/* Listen on the socket */
-	if (listen (self->_sock, BACKLOG) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:listen");
-
-	/* Create the epoll fd */
-	self->_epfd = epoll_create (5);
-	if (self->_epfd < 0)
-		logger_log (self->_log, CRITICAL, "daemon_setup:epoll_create");
-
-	/* We want to be notified when there is data to read */
-	event.data.fd = self->_sock;
-	event.events = EPOLLIN;
-	if (epoll_ctl (self->_epfd, EPOLL_CTL_ADD, self->_sock, &event) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:epoll_ctl");
-
-	/* Initialise the signal masks for SIGCHLD */
-	if (sigemptyset (&self->_blk_chld) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:sigemptyset");
-	if (sigaddset (&self->_blk_chld, SIGCHLD) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:sigaddset");
-
-	/* Initialise the signal masks for SIGTERM */
-	if (sigemptyset (&self->_blk_term) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:sigemptyset");
-	if (sigaddset (&self->_blk_term, SIGTERM) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:sigaddset");
-
 	/* Daemonize */
 
-#if FORK == 1
 	/* Create new process */
-	pid = fork ();
-	if (pid == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:fork");
-	else if (pid != 0)
-		return pid;
+	daemon->pid = fork ();
+	if (daemon->pid == -1)
+		logger_log (daemon->_log, CRITICAL, "daemon_setup:fork");
+	else if (daemon->pid != 0)
+		return daemon;
 
 	/* Create new session and process group */
 	if (setsid () == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:setsid");
+		logger_log (daemon->_log, CRITICAL, "daemon_setup:setsid");
 
 	/* Set the working directory to the root directory */
 	if (chdir ("/") == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:chdir");
-#endif
+		logger_log (daemon->_log, CRITICAL, "daemon_setup:chdir");
+
+	/* Initialise the signal masks for SIGCHLD */
+	if (sigemptyset (&daemon->_blk_chld) == -1)
+		logger_log (daemon->_log, CRITICAL, "daemon_setup:sigemptyset");
+	if (sigaddset (&daemon->_blk_chld, SIGCHLD) == -1)
+		logger_log (daemon->_log, CRITICAL, "daemon_setup:sigaddset");
+
+	/* Initialise the signal masks for SIGTERM */
+	if (sigemptyset (&daemon->_blk_term) == -1)
+		logger_log (daemon->_log, CRITICAL, "daemon_setup:sigemptyset");
+	if (sigaddset (&daemon->_blk_term, SIGTERM) == -1)
+		logger_log (daemon->_log, CRITICAL, "daemon_setup:sigaddset");
 
 	/* Attach the signal handler for SIGCHLD */
 	sigchld_action.sa_sigaction = sigchld_handler;
@@ -186,14 +162,14 @@ int daemon_setup (Daemon * self)
 	 * the Process without waiting for it */
 	sigchld_action.sa_flags = SA_SIGINFO | SA_NOCLDWAIT;
 	if (sigaction (SIGCHLD, &sigchld_action, NULL) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:sigaction");
+		logger_log (daemon->_log, CRITICAL, "daemon_setup:sigaction");
 
 	/* Attach the signal handler for SIGTERM */
 	sigterm_action.sa_handler = sigterm_handler;
 	sigemptyset (&sigterm_action.sa_mask);
 	sigchld_action.sa_flags = 0;
 	if (sigaction (SIGTERM, &sigterm_action, NULL) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:sigaction");
+		logger_log (daemon->_log, CRITICAL, "daemon_setup:sigaction");
 
 	/* Close stdin, stdout, stderr */
 	close (0);
@@ -205,9 +181,8 @@ int daemon_setup (Daemon * self)
 	dup (0);						/* stdout */
 	dup (0);						/* stderr */
 
-	logger_log (self->_log, INFO, "Daemon started with pid: %d", getpid ());
-	
-	return 0;
+	logger_log (daemon->_log, INFO, "Daemon started with pid: %d", getpid ());
+	return daemon;
 }
 
 /*

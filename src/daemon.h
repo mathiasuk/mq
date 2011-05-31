@@ -33,6 +33,7 @@ struct _Daemon
 	char * _sock_path;
 	int _sock;
 	struct sockaddr_un _slocal;
+	pid_t pid;						/* pid (use to distinguish parent/child */
 	char * _pid_path;
 	Logger * _log;
 	char * _log_path;
@@ -45,7 +46,6 @@ struct _Daemon
 };
 
 Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path);
-int daemon_setup (Daemon * self);
 void daemon_run (Daemon * self);
 void daemon_stop (Daemon * self);
 
