@@ -5,9 +5,12 @@ OBJS    = ${SOURCES:.c=.o}
 mq: main.c ${OBJS}
 	$(CC) -o mq main.c ${OBJS}
 
+client: client.c
+	$(CC) -o client client.c
+
 .c.o:
 	${CC} ${CFLAGS} -c $<
 
 clean:
-	rm -f mq *.o
+	rm -f mq *.o client
 

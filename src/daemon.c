@@ -23,9 +23,9 @@
 #include <unistd.h>
 #include <limits.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <signal.h>
 #include <errno.h>
+#include <sys/socket.h>
 
 #include "daemon.h"
 #include "logger.h"
@@ -33,12 +33,14 @@
 
 #define MAX_EVENTS	64
 #define TIMEOUT		1000
+#define BACKLOG		5		/* backlog for listen () */
 #define FORK		0
 
 /* Private methods */
-static void __daemon_parse_line (Daemon * self, char * line);
-static void __daemon_block_signals (Daemon * self);
-static void __daemon_unblock_signals (Daemon * self);
+static void _daemon_parse_line (Daemon * self, char * line);
+static void _daemon_block_signals (Daemon * self);
+static void _daemon_unblock_signals (Daemon * self);
+static int _daemon_read_socket (Daemon * self, int sock);
 
 /* Signal handler */
 void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr);
@@ -46,10 +48,10 @@ void sigterm_handler (int signum);
 
 /* 
  * Create and initialise the Daemon
- * args:   path to pipe, path to log file
+ * args:   path to socket, path to log file
  * return: Daemon object or NULL on error
  */
-Daemon * daemon_new (char * pipe_path, char * log_path)
+Daemon * daemon_new (char * sock_path, char * log_path)
 {
 	char * home;
 	Daemon * daemon = malloc (sizeof (Daemon));
@@ -57,42 +59,42 @@ Daemon * daemon_new (char * pipe_path, char * log_path)
 	if (!daemon)
 		return NULL;
 
-	/* Build the pipe's path */
-	if (pipe_path)
-		daemon->__pipe_path = pipe_path;
+	/* Build the socket's path */
+	if (sock_path)
+		daemon->_sock_path = sock_path;
 	else {
 		if ((home = getenv ("HOME")) == NULL)
 			return NULL;
-		daemon->__pipe_path = malloc (snprintf (NULL, 0, "%s/%s", home, 
-					                          PIPE_FILENAME) + 1);
-		if (daemon->__pipe_path == NULL)
+		daemon->_sock_path = malloc (snprintf (NULL, 0, "%s/%s", home, 
+					                          SOCK_FILENAME) + 1);
+		if (daemon->_sock_path == NULL)
 			return NULL;
 
-		sprintf (daemon->__pipe_path, "%s/%s", home, PIPE_FILENAME);
+		sprintf (daemon->_sock_path, "%s/%s", home, SOCK_FILENAME);
 	}
 
-	daemon->__pipe = -1;
+	daemon->_sock = -1;
 
 	/* Build the log file's path */
 	if (log_path)
-		daemon->__log_path = log_path;
+		daemon->_log_path = log_path;
 	else {
 		if ((home = getenv ("HOME")) == NULL)
 			return NULL;
 
-		daemon->__log_path = malloc(snprintf (NULL, 0, "%s/%s", home, LOG_FILENAME) + 1);
-		if (daemon->__log_path == NULL)
+		daemon->_log_path = malloc (snprintf (NULL, 0, "%s/%s", home, LOG_FILENAME) + 1);
+		if (daemon->_log_path == NULL)
 			return NULL;
 
-		sprintf (daemon->__log_path, "%s/%s", home, LOG_FILENAME);
+		sprintf (daemon->_log_path, "%s/%s", home, LOG_FILENAME);
 	}
 
-	daemon->__log = NULL;
+	daemon->_log = NULL;
 
-	daemon->__ncpus = 0;
+	daemon->_ncpus = 0;
 
-	daemon->__pslist = pslist_new();
-	if (daemon->__pslist == NULL) {
+	daemon->_pslist = pslist_new ();
+	if (daemon->_pslist == NULL) {
 		perror ("daemon_new:pslist_new");
 		exit (EXIT_FAILURE);
 	}
@@ -101,55 +103,66 @@ Daemon * daemon_new (char * pipe_path, char * log_path)
 }
 
 /* 
- * Setup the daemon (open pipe, setup Logger, find number of CPUS)
+ * Setup the daemon (open socket, setup Logger, find number of CPUS)
  * args:   Daemon
  * return: void
  */
 void daemon_setup (Daemon * self)
 {
+	int len;
 	struct epoll_event event;
-	struct stat buf;
 	struct sigaction sigchld_action;
 #if FORK == 1
 	pid_t pid;
 #endif
 
 	/* Setup the logging */
-	self->__log = logger_new (self->__log_path);
+	self->_log = logger_new (self->_log_path);
 
 	/* Find out the number of CPUs */
-	self->__ncpus = sysconf (_SC_NPROCESSORS_ONLN);
-	if (self->__ncpus < 1)
-		logger_log (self->__log, CRITICAL, "daemon_setup: Can't find the number of CPUs");
-	logger_log (self->__log, DEBUG, "Found %d CPU(s)", self->__ncpus);
+	self->_ncpus = sysconf (_SC_NPROCESSORS_ONLN);
+	if (self->_ncpus < 1)
+		logger_log (self->_log, CRITICAL, "daemon_setup: Can't find the number of CPUs");
+	logger_log (self->_log, DEBUG, "Found %d CPU(s)", self->_ncpus);
 
-	/* Check if pipe_path exists and is a named pipe */
-	if (stat (self->__pipe_path, &buf) == -1)
-		logger_log (self->__log, CRITICAL, "daemon_setup:stat: '%s'", self->__pipe_path);
-	if (!S_ISFIFO (buf.st_mode))
-		logger_log (self->__log, CRITICAL, "'%s' is not a named pipe", self->__pipe_path);
+	/* Unlink the socket's path to prevent EINVAL if the file already exist */
+    if (unlink (self->_sock_path) == -1) {
+		/* Don't report error if the path didn't exist */
+		if (errno != ENOENT)
+			logger_log (self->_log, CRITICAL, "daemon_setup:unlink");
+	}
 
-	/* Open the pipe */
-	self->__pipe = open (self->__pipe_path, O_RDWR);
-	if (self->__pipe == -1)
-		logger_log (self->__log, CRITICAL, "daemon_setup:open");
+	/* Open the socket */
+	if ((self->_sock = socket (AF_UNIX, SOCK_STREAM, 0)) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:socket");
+
+	/* Bind the socket */
+	self->_slocal.sun_family = AF_UNIX;
+    strcpy (self->_slocal.sun_path, self->_sock_path);
+    len = strlen (self->_slocal.sun_path) + sizeof (self->_slocal.sun_family);
+    if (bind (self->_sock, (struct sockaddr *) &self->_slocal, len) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:bind: %s", self->_sock_path);
+
+	/* Listen on the socket */
+	if (listen (self->_sock, BACKLOG) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:listen");
 
 	/* Create the epoll fd */
-	self->__epfd = epoll_create (5);
-	if (self->__epfd < 0)
-		logger_log (self->__log, CRITICAL, "daemon_setup:epoll_create");
+	self->_epfd = epoll_create (5);
+	if (self->_epfd < 0)
+		logger_log (self->_log, CRITICAL, "daemon_setup:epoll_create");
 
 	/* We want to be notified when there is data to read */
-	event.data.fd = self->__pipe;
+	event.data.fd = self->_sock;
 	event.events = EPOLLIN;
-	if (epoll_ctl (self->__epfd, EPOLL_CTL_ADD, self->__pipe, &event) == -1)
-		logger_log (self->__log, CRITICAL, "daemon_setup:epoll_ctl");
+	if (epoll_ctl (self->_epfd, EPOLL_CTL_ADD, self->_sock, &event) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:epoll_ctl");
 
 	/* Initialise the signal mask */
-	if (sigemptyset (&self->__blk_chld) == -1)
-		logger_log (self->__log, CRITICAL, "daemon_setup:sigemptyset");
-	if (sigaddset (&self->__blk_chld, SIGCHLD) == -1)
-		logger_log (self->__log, CRITICAL, "daemon_setup:sigaddset");
+	if (sigemptyset (&self->_blk_chld) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:sigemptyset");
+	if (sigaddset (&self->_blk_chld, SIGCHLD) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:sigaddset");
 
 	/* Attach the signal handlers */
 	sigchld_action.sa_sigaction = sigchld_handler;
@@ -159,9 +172,9 @@ void daemon_setup (Daemon * self)
 	sigchld_action.sa_flags = SA_SIGINFO | SA_NOCLDWAIT;
 
 	if (sigaction (SIGCHLD, &sigchld_action, NULL) == -1)
-		logger_log (self->__log, CRITICAL, "daemon_setup:sigaction");
+		logger_log (self->_log, CRITICAL, "daemon_setup:sigaction");
 	if (signal (SIGTERM, sigterm_handler) == SIG_ERR)
-		logger_log (self->__log, CRITICAL, "daemon_setup:signal");
+		logger_log (self->_log, CRITICAL, "daemon_setup:signal");
 
 	/* Daemonize */
 
@@ -169,30 +182,30 @@ void daemon_setup (Daemon * self)
 	/* Create new process */
 	pid = fork ();
 	if (pid == -1)
-		logger_log (self->__log, CRITICAL, "daemon_setup:fork");
+		logger_log (self->_log, CRITICAL, "daemon_setup:fork");
 	else if (pid != 0)
 		exit (EXIT_SUCCESS);
 
 	/* Create new session and process group */
 	if (setsid () == -1)
-		logger_log (self->__log, CRITICAL, "daemon_setup:setsid");
+		logger_log (self->_log, CRITICAL, "daemon_setup:setsid");
 
 	/* Set the working directory to the root directory */
 	if (chdir ("/") == -1)
-		logger_log (self->__log, CRITICAL, "daemon_setup:chdir");
+		logger_log (self->_log, CRITICAL, "daemon_setup:chdir");
 #endif
 
 	/* Close stdin, stdout, stderr */
-	close (0);
+	/* close (0);
 	close (1);
-	close (2);
+	close (2); */
 
 	/* redirect stdin, stdout, stderr to /dev/null */
 	open ("/dev/null", O_RDWR);		/* stdin */
 	dup (0);						/* stdout */
 	dup (0);						/* stderr */
 
-	logger_log (self->__log, INFO, "Daemon started with pid: %d", getpid ());
+	logger_log (self->_log, INFO, "Daemon started with pid: %d", getpid ());
 }
 
 /*
@@ -203,46 +216,53 @@ void daemon_setup (Daemon * self)
 void daemon_run (Daemon * self)
 {
 	struct epoll_event * events;
-	char buf[LINE_MAX], * s;
-	int i, nr_events, len;
+	int i, n_events, sock;
+	struct epoll_event event;
 	 
 	events = malloc (sizeof (struct epoll_event) * MAX_EVENTS);
 	if (!events)
-		logger_log (self->__log, CRITICAL, "daemon_run:malloc");
+		logger_log (self->_log, CRITICAL, "daemon_run:malloc");
 
-	/* We read one char at a time, stored in 'buf' at position 's',
-	 * when a '\n' is read we process the line and reset 's' */
-	s = buf;
+	/* Main loop */
 	for (;;) {
-		nr_events = epoll_wait (self->__epfd, events, MAX_EVENTS, TIMEOUT);
-		if (nr_events < 0) {
+		n_events = epoll_wait (self->_epfd, events, MAX_EVENTS, TIMEOUT);
+
+		if (n_events < 0) {
 			if (errno == EINTR) /* call was interrupted by a signal handler */
 				continue ;
-			logger_log (self->__log, CRITICAL, "daemon_run:epoll_wait");
+			logger_log (self->_log, CRITICAL, "daemon_run:epoll_wait");
 		}
 
-		if (nr_events == 0)
+		if (n_events == 0)
 			/* Waited for TIMEOUT ms */
 			;
 
-		for (i = 0; i < nr_events ; i++)
-		{
-			if (events[i].events == EPOLLIN) {
-				len = read (events[i].data.fd, s, sizeof (char));
-				if (len == -1)
-					logger_log (self->__log, CRITICAL, "daemon_run:read");
-				if (len) {
-					if (*s == '\n') {
-						*s = '\0';
-						logger_log (self->__log, DEBUG, "Read line: '%s'", buf);
-						__daemon_parse_line(self, buf);
-						s = buf;
-					} else s++;
-				}
+		/* Loop on all events */
+		for (i = 0; i < n_events; i++) {
+			if (events[i].data.fd == self->_sock) {
+				/* Check that the socket is ready */
+				if (!(events[i].events & EPOLLIN))
+					logger_log (self->_log, CRITICAL,
+								"daemon_run: Unexpected event: %x", events[i].events);
+
+				/* Main socket is ready */
+				/* Accept the new connection */
+				sock = accept (self->_sock, NULL, NULL);
+				if (sock == -1)
+					logger_log (self->_log, CRITICAL, "daemon_run:accept");
+
+				/* Add the new socket to our epoll_event */
+				event.events = EPOLLIN;
+				event.data.fd = sock;
+				if (epoll_ctl (self->_epfd, EPOLL_CTL_ADD, sock, &event) == -1)
+					logger_log (self->_log, CRITICAL, "daemon_setup:epoll_ctl (2)");
+			} else {
+				/* Handle the existing socket */
+				if (_daemon_read_socket(self, events[i].data.fd))
+					logger_log (self->_log, CRITICAL, "daemon_setup:_daemon_read_socket");
 			}
 		}
 	}
-	return ;
 }
 
 /* 
@@ -253,17 +273,17 @@ void daemon_run (Daemon * self)
 void daemon_stop (Daemon * self)
 {
 	/* Block signals */
-	__daemon_block_signals (self);
+	_daemon_block_signals (self);
 
 	/* TODO: kill all processes */
 
-	logger_log (self->__log, INFO, "Shutting daemon down");
+	logger_log (self->_log, INFO, "Shutting daemon down");
 
-	close (self->__pipe);
-	logger_close (self->__log);
+	close (self->_sock);
+	logger_close (self->_log);
 
 	/* Unblock signals */
-	__daemon_unblock_signals (self);
+	_daemon_unblock_signals (self);
 
 	exit (EXIT_SUCCESS);
 }
@@ -282,39 +302,39 @@ void daemon_run_processes (Daemon * self)
 	int i;
 
 	/* Block signals */
-	__daemon_block_signals (self);
+	_daemon_block_signals (self);
 
 	/* Check if the number of running processes is less than 
 	 * the number of CPUs available */
-	n_running = pslist_get_nps (self->__pslist, RUNNING, NULL);
-	if (n_running >= self->__ncpus) {
+	n_running = pslist_get_nps (self->_pslist, RUNNING, NULL);
+	if (n_running >= self->_ncpus) {
 		/* Unblock signals */
-		__daemon_unblock_signals (self);
+		_daemon_unblock_signals (self);
 		return ;
 	}
 
 	/* Get the list of processes waiting */
-	l_waiting  = malloc (pslist_get_nps (self->__pslist, WAITING, NULL) * 
+	l_waiting  = malloc (pslist_get_nps (self->_pslist, WAITING, NULL) * 
 			             sizeof (int));
 	if (l_waiting == NULL) {
-		logger_log (self->__log, WARNING, "daemon_run_processes:malloc");
+		logger_log (self->_log, WARNING, "daemon_run_processes:malloc");
 		/* Unblock signals */
-		__daemon_unblock_signals (self);
+		_daemon_unblock_signals (self);
 		return ;
 	}
 
-	n_waiting = pslist_get_nps (self->__pslist, WAITING, l_waiting);
+	n_waiting = pslist_get_nps (self->_pslist, WAITING, l_waiting);
 
 	/* Start as many Processes as we have free CPUs */
-	for (i = 0; (i < n_waiting) && (n_running <= self->__ncpus); i++)
+	for (i = 0; (i < n_waiting) && (n_running <= self->_ncpus); i++)
 	{
-		p = pslist_get_ps (self->__pslist, l_waiting[i]);
-		if (process_run(p) == 0) {
-			logger_log (self->__log, DEBUG, "Running Process: '%s'",
+		p = pslist_get_ps (self->_pslist, l_waiting[i]);
+		if (process_run (p) == 0) {
+			logger_log (self->_log, DEBUG, "Running Process: '%s'",
 					process_str (p));
 			n_running++;
 		} else {
-			logger_log (self->__log, WARNING, "Failed to run Process: '%s'",
+			logger_log (self->_log, WARNING, "Failed to run Process: '%s'",
 					process_str (p));
 		}
 
@@ -323,7 +343,7 @@ void daemon_run_processes (Daemon * self)
 	free (l_waiting);
 
 	/* Unblock signals */
-	__daemon_unblock_signals (self);
+	_daemon_unblock_signals (self);
 }
 
 /*
@@ -336,29 +356,29 @@ void daemon_wait_process (Daemon * self, siginfo_t * siginfo)
 	Process * p;
 
 	/* Block signals */
-	__daemon_block_signals (self);
+	_daemon_block_signals (self);
 
 	/* Check that we received the expected signal */
 	if (siginfo->si_signo != SIGCHLD)
-		logger_log (self->__log, CRITICAL, "Expected signal %d, received %d", 
+		logger_log (self->_log, CRITICAL, "Expected signal %d, received %d", 
 					SIGCHLD, siginfo->si_signo);
 
 	/* Get Process which emitted the signal */
-	p = pslist_get_ps_by_pid (self->__pslist, siginfo->si_pid);
+	p = pslist_get_ps_by_pid (self->_pslist, siginfo->si_pid);
 	if (p == NULL)
-		logger_log (self->__log, CRITICAL,
+		logger_log (self->_log, CRITICAL,
 					"daemon_wait_process:Can't find Process with pid %d", siginfo->si_pid);
 
 	/* "Wait" on the process */
 	if (process_wait (p, siginfo))
-		logger_log (self->__log, CRITICAL, "daemon_wait_process:process_wait", 
+		logger_log (self->_log, CRITICAL, "daemon_wait_process:process_wait", 
 					siginfo->si_pid);
 
-	logger_log (self->__log, DEBUG, "daemon_wait_process:waited on process (%d)", 
+	logger_log (self->_log, DEBUG, "daemon_wait_process:waited on process (%d)", 
 			siginfo->si_pid);
 
 	/* Unblock signals */
-	__daemon_unblock_signals (self);
+	_daemon_unblock_signals (self);
 }
 
 /* Private methods */
@@ -368,7 +388,7 @@ void daemon_wait_process (Daemon * self, siginfo_t * siginfo)
  * args:   Daemon, line to parse
  * return: void
  */
-static void __daemon_parse_line (Daemon * self, char * line)
+static void _daemon_parse_line (Daemon * self, char * line)
 {
 	char * action, * line_d, * s;
 	Process * p;
@@ -389,7 +409,7 @@ static void __daemon_parse_line (Daemon * self, char * line)
 
 	/* We duplicate the 'line' string as strtok modifies it */
 	if ((line_d = strdup (line)) == NULL)
-		logger_log (self->__log, CRITICAL, "__daemon_parse_line:strdup:");
+		logger_log (self->_log, CRITICAL, "_daemon_parse_line:strdup:");
 
 	/* Parse the action (first word of the line) */
 	action = strtok (line_d, " ");
@@ -401,35 +421,35 @@ static void __daemon_parse_line (Daemon * self, char * line)
 		if (strtok (NULL, " ")) {
 			/* Create Process: 
 			 * "line + strlen(action) + 1" skips the "add " from the line*/
-			p = process_new(line + strlen(action) + 1);
+			p = process_new (line + strlen (action) + 1);
 			if (p == NULL)
-				logger_log (self->__log, CRITICAL, 
-						    "__daemon_parse_line:process_new");
-			s = process_str(p);
+				logger_log (self->_log, CRITICAL, 
+						    "_daemon_parse_line:process_new");
+			s = process_str (p);
 			if (s == NULL)
-				logger_log (self->__log, CRITICAL,
-							"__daemon_parse_line:process_str");
+				logger_log (self->_log, CRITICAL,
+							"_daemon_parse_line:process_str");
 			free (s);
 			/* Add process to pslist */
-			if (pslist_append(self->__pslist, p))
-				logger_log (self->__log, CRITICAL,
-						    "__daemon_parse_line:pslit_append");
-			logger_log (self->__log, DEBUG, "Added Process to queue: '%s'", s);
+			if (pslist_append (self->_pslist, p))
+				logger_log (self->_log, CRITICAL,
+						    "_daemon_parse_line:pslit_append");
+			logger_log (self->_log, DEBUG, "Added Process to queue: '%s'", s);
 
 			/* Start processes if any CPUs are available */
 			daemon_run_processes (self);
 		} else {
-			logger_log (self->__log, WARNING, "Missing command for add: '%s'", 
+			logger_log (self->_log, WARNING, "Missing command for add: '%s'", 
 					    line);
 		}
 	} else if (strcmp (action, "exit") == 0) {
 		daemon_stop (self);
 	} else if (strcmp (action, "debug") == 0) {
-		logger_set_debugging (self->__log, 1);
+		logger_set_debugging (self->_log, 1);
 	} else if (strcmp (action, "nodebug") == 0) {
-		logger_set_debugging (self->__log, 0);
+		logger_set_debugging (self->_log, 0);
 	} else {
-		logger_log (self->__log, WARNING, "Unknown action: '%s'", line);
+		logger_log (self->_log, WARNING, "Unknown action: '%s'", line);
 	}
 }
 
@@ -438,10 +458,10 @@ static void __daemon_parse_line (Daemon * self, char * line)
  * args:   Daemon
  * return: void
  */
-static void __daemon_block_signals (Daemon * self)
+static void _daemon_block_signals (Daemon * self)
 {
-	if (sigprocmask (SIG_BLOCK, &self->__blk_chld, NULL) == -1)
-		logger_log (self->__log, CRITICAL, "__daemon_block_signals:sigprocmask");
+	if (sigprocmask (SIG_BLOCK, &self->_blk_chld, NULL) == -1)
+		logger_log (self->_log, CRITICAL, "_daemon_block_signals:sigprocmask");
 }
 
 /*
@@ -449,11 +469,44 @@ static void __daemon_block_signals (Daemon * self)
  * args:   Daemon
  * return: void
  */
-static void __daemon_unblock_signals (Daemon * self)
+static void _daemon_unblock_signals (Daemon * self)
 {
-	if (sigprocmask (SIG_UNBLOCK, &self->__blk_chld, NULL) == -1)
-		logger_log (self->__log, CRITICAL, "__daemon_block_signals:sigprocmask");
+	if (sigprocmask (SIG_UNBLOCK, &self->_blk_chld, NULL) == -1)
+		logger_log (self->_log, CRITICAL, "_daemon_block_signals:sigprocmask");
 }
+
+/* 
+ * Read from the given socket
+ * args:   Daemon, socket
+ * return: 0 on success, 1 on error
+ */
+static int _daemon_read_socket (Daemon * self, int sock)
+{
+	char buf[LINE_MAX];
+	int len;
+
+	len = recv (sock, buf, 100, 0);
+	if (len < 0)
+		return 1;
+
+	/* Other side has closed the socket */
+	if (len == 0) {
+		if (close(sock) == -1)
+			return 1;
+	}
+
+	/* Remove the EOL if any */
+	if (len > 1 && buf[len - 1] == '\n')
+		buf[len - 1] = '\0';
+	else
+		buf[len] = '\0';
+
+	logger_log (self->_log, DEBUG, "Read line: '%s'", buf);
+	_daemon_parse_line (self, buf);	
+
+	return 0;
+}
+
 
 /* Signal handlers */
 void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr)
@@ -466,6 +519,6 @@ void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr)
 void sigterm_handler (int signum)
 {
 	extern Daemon * d;
-	/* FIXME: __log should be made private, or a daemon_log method implemented */
-	logger_log (d->__log, INFO, "Got signal: %d", signum);
+	/* FIXME: _log should be made private, or a daemon_log method implemented */
+	logger_log (d->_log, INFO, "Got signal: %d", signum);
 }

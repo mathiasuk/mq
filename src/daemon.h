@@ -20,10 +20,11 @@
 #ifndef DAEMON_H
 #define DAEMON_H
 
-#define PIPE_FILENAME ".mq.pipe"
+#define SOCK_FILENAME ".mq.sock"
 #define LOG_FILENAME ".mq.log"
 
 #include <signal.h>
+#include <sys/un.h>
 
 #include "logger.h"
 #include "pslist.h"
@@ -32,19 +33,19 @@ typedef struct _Daemon Daemon;
 
 struct _Daemon 
 {
-	char * __pipe_path;
-	int __pipe;
-	char * __log_path;
-	Logger * __log;
-	int __epfd;						/* epoll fd */
-	/* TODO: should process list be volatile? */
-	PsList * __pslist;				/* Process list, these should only be accessed while
-									   signals are blocked with __daemon_block_signals */
-	long __ncpus;					/* Number of available CPUs */
-	sigset_t __blk_chld;			/* Block SIGCHLD */
+	char * _sock_path;
+	int _sock;
+	struct sockaddr_un _slocal;
+	char * _log_path;
+	Logger * _log;
+	int _epfd;						/* epoll fd */
+	PsList * _pslist;				/* Process list, these should only be accessed while
+									   signals are blocked with _daemon_block_signals */
+	long _ncpus;					/* Number of available CPUs */
+	sigset_t _blk_chld;			/* Block SIGCHLD */
 };
 
-Daemon * daemon_new (char * pipe_path, char * log_path);
+Daemon * daemon_new (char * sock_path, char * log_path);
 void daemon_run (Daemon * self);
 void daemon_setup (Daemon * self);
 void daemon_stop (Daemon * self);
