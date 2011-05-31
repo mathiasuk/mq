@@ -37,10 +37,10 @@ Process * process_new (const char * command)
 	if (!process)
 		return NULL;
 
-	process->__command = command;
-	process->__state = WAITING;
-	process->__pid = 0;
-	process->__ret = 0;
+	process->_command = command;
+	process->_state = WAITING;
+	process->_pid = 0;
+	process->_ret = 0;
 
 	return process;
 }
@@ -54,10 +54,10 @@ char * process_str (Process * self)
 {
 	char * ret;
 	/* TODO: only show PID if process is running? */
-	if ((ret = malloc (snprintf (NULL, 0, "%-30s, PID: %d", self->__command,
-								 self->__pid))) == NULL)
+	if ((ret = malloc (snprintf (NULL, 0, "%-30s, PID: %d", self->_command,
+								 self->_pid))) == NULL)
 		return NULL;
-	sprintf (ret, "%-30s, PID: %d", self->__command, self->__pid);
+	sprintf (ret, "%-30s, PID: %d", self->_command, self->_pid);
 
 	return ret;
 }
@@ -70,7 +70,7 @@ char * process_str (Process * self)
 int process_run (Process * self)
 {
 	char * args[MAX_ARGS];
-	char * command = strdup (self->__command);
+	char * command = strdup (self->_command);
 	int i = 0;
 
 	/* Transform the command line in an array
@@ -85,11 +85,11 @@ int process_run (Process * self)
 	args[i] = NULL;
 
 	/* Create new process */
-	self->__pid = fork ();
-	if (self->__pid == -1)
+	self->_pid = fork ();
+	if (self->_pid == -1)
 		return 1;	/* failed */
-	else if (self->__pid != 0) {
-		self->__state = RUNNING;
+	else if (self->_pid != 0) {
+		self->_state = RUNNING;
 		return 0;	/* success */
 	}
 
@@ -110,14 +110,14 @@ int process_wait (Process * self, siginfo_t * siginfo)
 	switch (siginfo->si_code)
 	{
 		case CLD_EXITED:
-			self->__state = EXITED;
-			self->__ret = siginfo->si_status;
+			self->_state = EXITED;
+			self->_ret = siginfo->si_status;
 			break;
 		case CLD_KILLED:
-			self->__state = KILLED;
+			self->_state = KILLED;
 			break;
 		case CLD_DUMPED:
-			self->__state = DUMPED;
+			self->_state = DUMPED;
 			break;
 		case CLD_STOPPED:
 			/* TODO */
@@ -144,7 +144,7 @@ PsState process_get_state (Process * self)
 {
 	if (self == NULL)
 		return -1;
-	return self->__state;
+	return self->_state;
 }
 
 /*
@@ -156,5 +156,5 @@ pid_t process_get_pid (Process * self)
 {
 	if (self == NULL)
 		return -1;
-	return self->__pid;
+	return self->_pid;
 }

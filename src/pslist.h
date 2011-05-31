@@ -28,8 +28,8 @@ typedef struct _PsList PsList;
 
 struct _PsList 
 {
-	Process ** __list;
-	int __len;
+	Process ** _list;
+	int _len;
 };
 
 PsList * pslist_new (void);

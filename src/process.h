@@ -37,10 +37,10 @@ typedef struct _Process Process;
 
 struct _Process 
 {
-	const char * __command;
-	PsState __state;
-	pid_t __pid;
-	int __ret;		/* Return value */
+	const char * _command;
+	PsState _state;
+	pid_t _pid;
+	int _ret;		/* Return value */
 };
 
 Process * process_new (const char * command);

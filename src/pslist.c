@@ -34,11 +34,11 @@ PsList * pslist_new (void)
 		return NULL;
 
 	/* Initial size is CHUNK_SIZE elements */
-	pslist->__list = malloc (CHUNK_SIZE * sizeof (PsList *));
-	if (!pslist->__list)
+	pslist->_list = malloc (CHUNK_SIZE * sizeof (PsList *));
+	if (!pslist->_list)
 		return NULL;
 
-	pslist->__len = 0;
+	pslist->_len = 0;
 
 	return pslist;
 }
@@ -51,18 +51,18 @@ PsList * pslist_new (void)
 int pslist_append (PsList * self, Process * process)
 {
 	/* If the current list is full we extend it by CHUNK_SIZE */
-	if (self->__len % CHUNK_SIZE == 0) {
+	if (self->_len % CHUNK_SIZE == 0) {
 		Process ** tmp_list;
-		tmp_list = realloc (self->__list, (self->__len + CHUNK_SIZE) * sizeof (PsList *));
+		tmp_list = realloc (self->_list, (self->_len + CHUNK_SIZE) * sizeof (PsList *));
 		if (tmp_list == NULL)
 			return -1;
 		else
-			self->__list = tmp_list;
+			self->_list = tmp_list;
 
 	}
 
-	self->__list[self->__len] = process;
-	self->__len++;
+	self->_list[self->_len] = process;
+	self->_len++;
 	return 0;
 }
 
@@ -77,10 +77,10 @@ int pslist_get_nps (PsList * self, PsState state, int * list)
 	int i, len = 0;
 	Process * p = NULL;
 
-	if (self->__len == 0)
+	if (self->_len == 0)
 		return 0;
 
-	for (i = 0; i < self->__len; i++) {
+	for (i = 0; i < self->_len; i++) {
 		p = pslist_get_ps (self, i);
 		if ((state == ANY) || (process_get_state (p) == state)) {
 			if (list)
@@ -100,10 +100,10 @@ int pslist_get_nps (PsList * self, PsState state, int * list)
 Process * pslist_get_ps (PsList * self, int index)
 {
 	/* Check that the given index is within the range */
-	if ((index < 0) || (index >= self->__len))
+	if ((index < 0) || (index >= self->_len))
 		return NULL;
 
-	return self->__list[index];
+	return self->_list[index];
 }
 
 /* 
@@ -119,7 +119,7 @@ Process * pslist_get_ps_by_pid (PsList * self, pid_t pid)
 	if (pid < 1)
 		return NULL;
 
-	for (i = 0; i < self->__len; i++) {
+	for (i = 0; i < self->_len; i++) {
 		p = pslist_get_ps (self, i);
 		if (process_get_pid (p) == pid)
 			return p;
