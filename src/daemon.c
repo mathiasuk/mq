@@ -34,7 +34,7 @@
 #define MAX_EVENTS	64
 #define TIMEOUT		1000
 #define BACKLOG		5		/* backlog for listen () */
-#define FORK		0
+#define FORK		1
 
 /* Private methods */
 static void _daemon_parse_line (Daemon * self, char * line);
@@ -51,45 +51,35 @@ void sigterm_handler (int signum);
  * args:   path to socket, path to log file
  * return: Daemon object or NULL on error
  */
-Daemon * daemon_new (char * sock_path, char * log_path)
+Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path)
 {
-	char * home;
 	Daemon * daemon = malloc (sizeof (Daemon));
 
 	if (!daemon)
 		return NULL;
 
 	/* Build the socket's path */
-	if (sock_path)
-		daemon->_sock_path = sock_path;
-	else {
-		if ((home = getenv ("HOME")) == NULL)
-			return NULL;
-		daemon->_sock_path = malloc (snprintf (NULL, 0, "%s/%s", home, 
-					                          SOCK_FILENAME) + 1);
-		if (daemon->_sock_path == NULL)
-			return NULL;
+	if (sock_path == NULL || strlen (sock_path) == 0)
+		return NULL;
+	daemon->_sock_path = sock_path;
 
-		sprintf (daemon->_sock_path, "%s/%s", home, SOCK_FILENAME);
-	}
+	/* Build the pidfile's path */
+	if (pid_path == NULL || strlen (pid_path) == 0)
+		return NULL;
+	daemon->_pid_path = pid_path;
+
+	/* Build the logfile's path */
+	if (log_path == NULL || strlen (log_path) == 0)
+		return NULL;
+	daemon->_log_path = log_path;
 
 	daemon->_sock = -1;
 
-	/* Build the log file's path */
-	if (log_path)
-		daemon->_log_path = log_path;
-	else {
-		if ((home = getenv ("HOME")) == NULL)
-			return NULL;
-
-		daemon->_log_path = malloc (snprintf (NULL, 0, "%s/%s", home, LOG_FILENAME) + 1);
-		if (daemon->_log_path == NULL)
-			return NULL;
-
-		sprintf (daemon->_log_path, "%s/%s", home, LOG_FILENAME);
-	}
-
 	daemon->_log = NULL;
+
+	daemon->_pid_path = NULL;
+
+	daemon->_epfd = -1;
 
 	daemon->_ncpus = 0;
 
@@ -105,9 +95,9 @@ Daemon * daemon_new (char * sock_path, char * log_path)
 /* 
  * Setup the daemon (open socket, setup Logger, find number of CPUS)
  * args:   Daemon
- * return: void
+ * return: 0 or child pid on success
  */
-void daemon_setup (Daemon * self)
+int daemon_setup (Daemon * self)
 {
 	int len;
 	struct epoll_event event;
@@ -170,6 +160,25 @@ void daemon_setup (Daemon * self)
 	if (sigaddset (&self->_blk_term, SIGTERM) == -1)
 		logger_log (self->_log, CRITICAL, "daemon_setup:sigaddset");
 
+	/* Daemonize */
+
+#if FORK == 1
+	/* Create new process */
+	pid = fork ();
+	if (pid == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:fork");
+	else if (pid != 0)
+		return pid;
+
+	/* Create new session and process group */
+	if (setsid () == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:setsid");
+
+	/* Set the working directory to the root directory */
+	if (chdir ("/") == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:chdir");
+#endif
+
 	/* Attach the signal handler for SIGCHLD */
 	sigchld_action.sa_sigaction = sigchld_handler;
 	sigemptyset (&sigchld_action.sa_mask);
@@ -186,29 +195,10 @@ void daemon_setup (Daemon * self)
 	if (sigaction (SIGTERM, &sigterm_action, NULL) == -1)
 		logger_log (self->_log, CRITICAL, "daemon_setup:sigaction");
 
-	/* Daemonize */
-
-#if FORK == 1
-	/* Create new process */
-	pid = fork ();
-	if (pid == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:fork");
-	else if (pid != 0)
-		exit (EXIT_SUCCESS);
-
-	/* Create new session and process group */
-	if (setsid () == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:setsid");
-
-	/* Set the working directory to the root directory */
-	if (chdir ("/") == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:chdir");
-#endif
-
 	/* Close stdin, stdout, stderr */
-	/* close (0);
+	close (0);
 	close (1);
-	close (2); */
+	close (2);
 
 	/* redirect stdin, stdout, stderr to /dev/null */
 	open ("/dev/null", O_RDWR);		/* stdin */
@@ -216,6 +206,8 @@ void daemon_setup (Daemon * self)
 	dup (0);						/* stderr */
 
 	logger_log (self->_log, INFO, "Daemon started with pid: %d", getpid ());
+	
+	return 0;
 }
 
 /*

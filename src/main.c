@@ -20,18 +20,21 @@
 #include <stdlib.h>
 
 #include "daemon.h"
+#include "client.h"
 
-Daemon * d;
+Daemon * d = NULL;
 
 int main (void)
 {
-	d = daemon_new(NULL, NULL);
-	if (d == NULL) {
-		perror ("main:daemon_new");
+	Client * client = client_new ();
+
+	if (client == NULL) {
+		perror ("main:client_new");
 		exit (EXIT_FAILURE);
 	}
-	daemon_setup(d);
-	daemon_run(d);	
+
+	client_setup (client);
+	client_run (client);
 
 	return EXIT_SUCCESS;
 }

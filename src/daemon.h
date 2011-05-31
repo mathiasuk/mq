@@ -20,9 +20,6 @@
 #ifndef DAEMON_H
 #define DAEMON_H
 
-#define SOCK_FILENAME ".mq.sock"
-#define LOG_FILENAME ".mq.log"
-
 #include <signal.h>
 #include <sys/un.h>
 
@@ -36,8 +33,9 @@ struct _Daemon
 	char * _sock_path;
 	int _sock;
 	struct sockaddr_un _slocal;
-	char * _log_path;
+	char * _pid_path;
 	Logger * _log;
+	char * _log_path;
 	int _epfd;						/* epoll fd */
 	PsList * _pslist;				/* Process list, these should only be accessed while
 									   signals are blocked with _daemon_block_signals */
@@ -46,9 +44,9 @@ struct _Daemon
 	sigset_t _blk_term;				/* Block SIGTERM */
 };
 
-Daemon * daemon_new (char * sock_path, char * log_path);
+Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path);
+int daemon_setup (Daemon * self);
 void daemon_run (Daemon * self);
-void daemon_setup (Daemon * self);
 void daemon_stop (Daemon * self);
 
 void daemon_run_processes (Daemon * self);
