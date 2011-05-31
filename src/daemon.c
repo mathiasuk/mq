@@ -111,7 +111,7 @@ void daemon_setup (Daemon * self)
 {
 	int len;
 	struct epoll_event event;
-	struct sigaction sigchld_action;
+	struct sigaction sigchld_action, sigterm_action;
 #if FORK == 1
 	pid_t pid;
 #endif
@@ -158,23 +158,33 @@ void daemon_setup (Daemon * self)
 	if (epoll_ctl (self->_epfd, EPOLL_CTL_ADD, self->_sock, &event) == -1)
 		logger_log (self->_log, CRITICAL, "daemon_setup:epoll_ctl");
 
-	/* Initialise the signal mask */
+	/* Initialise the signal masks for SIGCHLD */
 	if (sigemptyset (&self->_blk_chld) == -1)
 		logger_log (self->_log, CRITICAL, "daemon_setup:sigemptyset");
 	if (sigaddset (&self->_blk_chld, SIGCHLD) == -1)
 		logger_log (self->_log, CRITICAL, "daemon_setup:sigaddset");
 
-	/* Attach the signal handlers */
+	/* Initialise the signal masks for SIGTERM */
+	if (sigemptyset (&self->_blk_term) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:sigemptyset");
+	if (sigaddset (&self->_blk_term, SIGTERM) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:sigaddset");
+
+	/* Attach the signal handler for SIGCHLD */
 	sigchld_action.sa_sigaction = sigchld_handler;
 	sigemptyset (&sigchld_action.sa_mask);
 	/* We use SA_NOCLDWAIT as sa_sigaction will give us all the info regarding
 	 * the Process without waiting for it */
 	sigchld_action.sa_flags = SA_SIGINFO | SA_NOCLDWAIT;
-
 	if (sigaction (SIGCHLD, &sigchld_action, NULL) == -1)
 		logger_log (self->_log, CRITICAL, "daemon_setup:sigaction");
-	if (signal (SIGTERM, sigterm_handler) == SIG_ERR)
-		logger_log (self->_log, CRITICAL, "daemon_setup:signal");
+
+	/* Attach the signal handler for SIGTERM */
+	sigterm_action.sa_handler = sigterm_handler;
+	sigemptyset (&sigterm_action.sa_mask);
+	sigchld_action.sa_flags = 0;
+	if (sigaction (SIGTERM, &sigterm_action, NULL) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:sigaction");
 
 	/* Daemonize */
 
@@ -462,6 +472,8 @@ static void _daemon_block_signals (Daemon * self)
 {
 	if (sigprocmask (SIG_BLOCK, &self->_blk_chld, NULL) == -1)
 		logger_log (self->_log, CRITICAL, "_daemon_block_signals:sigprocmask");
+	if (sigprocmask (SIG_BLOCK, &self->_blk_term, NULL) == -1)
+		logger_log (self->_log, CRITICAL, "_daemon_block_signals:sigprocmask");
 }
 
 /*
@@ -472,6 +484,8 @@ static void _daemon_block_signals (Daemon * self)
 static void _daemon_unblock_signals (Daemon * self)
 {
 	if (sigprocmask (SIG_UNBLOCK, &self->_blk_chld, NULL) == -1)
+		logger_log (self->_log, CRITICAL, "_daemon_block_signals:sigprocmask");
+	if (sigprocmask (SIG_UNBLOCK, &self->_blk_term, NULL) == -1)
 		logger_log (self->_log, CRITICAL, "_daemon_block_signals:sigprocmask");
 }
 
@@ -519,6 +533,5 @@ void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr)
 void sigterm_handler (int signum)
 {
 	extern Daemon * d;
-	/* FIXME: _log should be made private, or a daemon_log method implemented */
-	logger_log (d->_log, INFO, "Got signal: %d", signum);
+	daemon_stop (d);
 }

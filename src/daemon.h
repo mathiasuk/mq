@@ -42,7 +42,8 @@ struct _Daemon
 	PsList * _pslist;				/* Process list, these should only be accessed while
 									   signals are blocked with _daemon_block_signals */
 	long _ncpus;					/* Number of available CPUs */
-	sigset_t _blk_chld;			/* Block SIGCHLD */
+	sigset_t _blk_chld;				/* Block SIGCHLD */
+	sigset_t _blk_term;				/* Block SIGTERM */
 };
 
 Daemon * daemon_new (char * sock_path, char * log_path);
