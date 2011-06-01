@@ -24,12 +24,17 @@
 
 Daemon * d = NULL;
 
-int main (void)
+int main (int argc, char * argv[])
 {
 	Client * client = client_new ();
 
 	if (client == NULL) {
 		perror ("main:client_new");
+		return EXIT_FAILURE;
+	}
+
+	if (client_parse_args (client, argc, argv)) {
+		perror ("main:client_parse_args");
 		return EXIT_FAILURE;
 	}
 

@@ -31,9 +31,12 @@ struct _Client
 	char * _pid_path;
 	char * _sock_path;
 	char * _log_path;
+	int _argc;
+	char ** _argv;
 };
 
 Client * client_new (void);
+int client_parse_args (Client * self, int argc, char * argv[]);
 void client_run (Client * self);
 
 #endif /* CLIENT_H */

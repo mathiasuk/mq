@@ -25,6 +25,9 @@
 #include "client.h"
 #include "daemon.h"
 
+/* Private methods */
+char * _client_get_next_arg (Client * client);
+
 /* 
  * Create and initialise the Cleint
  * args:   void
@@ -62,9 +65,31 @@ Client * client_new (void)
 		return NULL;
 	sprintf (client->_log_path, "%s/%s", home, LOG_FILENAME);
 
-	/* TODO: parse arguments */
+	client->_argc = 0;
 
 	return client;
+}
+
+/* 
+ * Parse the given arguments
+ * args:   Client, argc, argv
+ * return: 0 on sucess, 1 on failure
+ */
+int client_parse_args (Client * self, int argc, char ** argv)
+{
+	char * arg;
+
+	self->_argc = argc;
+	self->_argv = argv;
+
+	/* We're only interested in finding options (ie: args starting with 
+	 * '-' or '--'), if we find anything else we can assume that it should
+	 * be sent to the daemon */
+
+	while ((arg = _client_get_next_arg (self)) != NULL)
+		printf ("arg: %s\n", arg);
+
+	return 0;
 }
 
 /*
@@ -95,7 +120,7 @@ void client_run (Client * self)
 
     if ((sock = socket (AF_UNIX, SOCK_STREAM, 0)) == -1) {
         perror ("socket");
-        exit(EXIT_FAILURE);
+        exit (EXIT_FAILURE);
     }
 
     printf ("Trying to connect...\n");
@@ -104,29 +129,44 @@ void client_run (Client * self)
     strcpy (remote.sun_path, self->_sock_path);
     len = strlen (remote.sun_path) + sizeof (remote.sun_family);
     if (connect (sock, (struct sockaddr *) &remote, len) == -1) {
-        perror("connect");
-        exit(1);
+        perror ("connect");
+        exit (EXIT_FAILURE);
     }
 
     printf ("Connected.\n");
 
-    while (printf("> "), fgets (buf, 100, stdin), !feof(stdin)) {
+    while (printf( "> "), fgets (buf, 100, stdin), !feof (stdin)) {
         if (send (sock, buf, strlen (buf), 0) == -1) {
             perror ("send");
             exit (EXIT_FAILURE);
         }
 
-		/* if ((t=recv(sock, str, 100, 0)) > 0) { */
+		/* if ((t=recv (sock, str, 100, 0)) > 0) { */
 			/* str[t] = '\0'; */
-			/* printf("echo> %s", str); */
+			/* printf ("echo> %s", str); */
 		/* } else { */
-			/* if (t < 0) perror("recv"); */
-			/* else printf("Server closed connection\n"); */
-			/* exit(1); */
+			/* if (t < 0) perror ("recv"); */
+			/* else printf ("Server closed connection\n"); */
+			/* exit (1); */
 		/* } */
     }
 
     close (sock);
 
     exit (EXIT_SUCCESS);
+}
+
+/* Private methods */
+char * _client_get_next_arg (Client * self)
+{
+	static int i = 0;
+
+	i++;	/* Look for the next arg, this means we skip argv[0] */
+
+	if (i >= self->_argc)
+		return NULL;
+
+	return self->_argv[i];
+
+	return NULL;
 }
