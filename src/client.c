@@ -67,6 +67,7 @@ Client * client_new (void)
 	sprintf (client->_log_path, "%s/%s", home, LOG_FILENAME);
 
 	client->_argc = 0;
+	client->_ncpus = 0;
 
 	return client;
 }
@@ -217,21 +218,21 @@ int _client_parse_opt (Client * self, int i)
 			printf ("Set _sock_path to %s\n", self->_sock_path);
 		}
 	}
-	else if (strcmp (arg, "-i") == 0)	/* -i PIDFILE_PATH */
+	else if (strcmp (arg, "-p") == 0)	/* -p PIDFILE_PATH */
 	{
 		/* Get the next argument */
 		narg = _client_get_next_arg (self, NULL);
 
 		/* Check that it is an option parameter (ie: doesn't start with '-') */
 		if (narg == NULL || narg[0] == '-') {
-			printf ("Expected: -i PIDFILE_PATH\n");
+			printf ("Expected: -p PIDFILE_PATH\n");
 			return 1;
 		} else {
 			self->_pid_path = narg;
 			printf ("Set _pid_path to %s\n", self->_pid_path);
 		}
 	}
-	else if (strcmp (arg, "-l") == 0)	/* -i LOGFILE_PATH */
+	else if (strcmp (arg, "-l") == 0)	/* -l LOGFILE_PATH */
 	{
 		/* Get the next argument */
 		narg = _client_get_next_arg (self, NULL);
@@ -243,6 +244,20 @@ int _client_parse_opt (Client * self, int i)
 		} else {
 			self->_log_path = narg;
 			printf ("Set _log_path to %s\n", self->_log_path);
+		}
+	}
+	else if (strcmp (arg, "-n") == 0)	/* -n NUMBER_CPUS */
+	{
+		/* Get the next argument */
+		narg = _client_get_next_arg (self, NULL);
+
+		/* Check that it is an option parameter (ie: doesn't start with '-') */
+		if (narg == NULL || narg[0] == '-') {
+			printf ("Expected: -n NUMBER_CPUS\n");
+			return 1;
+		} else {
+			self->_ncpus = atol(narg);
+			printf ("Set _ncpus to %ld\n", self->_ncpus);
 		}
 	}
 

@@ -33,6 +33,7 @@ struct _Client
 	char * _log_path;
 	int _argc;
 	char ** _argv;
+	long _ncpus;			/* Number of available CPUs */
 };
 
 Client * client_new (void);
