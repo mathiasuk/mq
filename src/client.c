@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <sys/socket.h>
+#include <errno.h>
 
 #include "client.h"
 #include "daemon.h"
@@ -28,6 +29,7 @@
 /* Private methods */
 char * _client_get_next_arg (Client * self, int * i);
 int _client_parse_opt (Client * self, int i);
+int _client_daemon_running (Client * self);
 
 /* 
  * Create and initialise the Cleint
@@ -113,23 +115,28 @@ void client_run (Client * self)
     struct sockaddr_un remote;
 	char buf[LINE_MAX];
 
+	/* Check if a daemon is already running, otherwise start one */
+	if (_client_daemon_running (self) == 0) 
+	{
+		d = daemon_new (self->_sock_path, self->_pid_path, self->_log_path);
+		if (d == NULL) {
+			perror ("client_run:daemon_new");
+			exit (EXIT_FAILURE);
+		}
 
-	/* TODO: check if the daemon is already running otherwise start it */
-	d = daemon_new (self->_sock_path, self->_pid_path, self->_log_path);
-	if (d == NULL) {
-		perror ("client_run:daemon_new");
+		/* Run the daemon */
+		daemon_run (d);	
+	}
+
+
+	/* Connect to the socket */
+
+	if ((sock = socket (AF_UNIX, SOCK_STREAM, 0)) == -1) {
+		perror ("socket");
 		exit (EXIT_FAILURE);
 	}
 
-	/* Run the daemon */
-	daemon_run (d);	
-
-    if ((sock = socket (AF_UNIX, SOCK_STREAM, 0)) == -1) {
-        perror ("socket");
-        exit (EXIT_FAILURE);
-    }
-
-    printf ("Trying to connect...\n");
+	printf ("Trying to connect...\n");
 
     remote.sun_family = AF_UNIX;
     strcpy (remote.sun_path, self->_sock_path);
@@ -155,6 +162,7 @@ void client_run (Client * self)
 			/* else printf ("Server closed connection\n"); */
 			/* exit (1); */
 		/* } */
+		break ;
     }
 
     close (sock);
@@ -259,4 +267,43 @@ int _client_parse_opt (Client * self, int i)
 	}
 
 	return 0;
+}
+
+/* 
+ * Check if the daemon is running
+ * args:   Client
+ * return: 1 if Daemon is running, else 0
+ */
+int _client_daemon_running (Client * self)
+{
+	FILE * f;
+	char buf[LINE_MAX];
+	size_t len;
+	pid_t pid;
+
+	/* Try to open the PID file */
+	f = fopen (self->_pid_path, "r");
+	if (f == NULL) {
+		if (errno == ENOENT)	/* PID file doesn't exist */
+			return 0;
+		perror ("_client_daemon_running:fopen");
+		exit (EXIT_FAILURE);
+	}
+
+	/* Read the PID from the PID file */
+	len = fread (buf, sizeof (char), LINE_MAX, f);
+	if (len == 0) {
+		if (feof (f)) {		/* Note: feof doesn't set errno */
+			printf ("PID file '%s' is empty!", self->_pid_path);
+			exit (EXIT_FAILURE);
+		}
+		perror ("_client_daemon_running:fread");
+		exit (EXIT_FAILURE);
+	}
+	buf[len] = '\0';
+	pid = atoi (buf);
+	printf ("daemon running with pid: %d\n", pid);
+
+
+	return 1;
 }

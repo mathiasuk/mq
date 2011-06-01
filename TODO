@@ -1,3 +1,1 @@
-- Remove Daemon->pid as it's not the Daemon's pid but the result of fork() in 
-  daemon_new(). Find a way to distinguish between the daemon and client 
-  processes in client_run()
+- Write errors to stderr in Client
