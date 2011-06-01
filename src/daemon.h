@@ -33,7 +33,7 @@ struct _Daemon
 	char * _sock_path;
 	int _sock;
 	struct sockaddr_un _slocal;
-	pid_t pid;						/* pid (use to distinguish parent/child */
+	pid_t pid;						/* pid (used to distinguish parent/child) */
 	char * _pid_path;
 	Logger * _log;
 	char * _log_path;
