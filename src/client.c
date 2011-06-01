@@ -203,8 +203,7 @@ int _client_parse_opt (Client * self, int i)
 
 	arg = self->_argv[i];
 
-	/* -s SOCK_PATH */
-	if (strcmp (arg, "-s") == 0)
+	if (strcmp (arg, "-s") == 0)		/* -s SOCK_PATH */
 	{
 		/* Get the next argument */
 		narg = _client_get_next_arg (self, NULL);
@@ -215,7 +214,35 @@ int _client_parse_opt (Client * self, int i)
 			return 1;
 		} else {
 			self->_sock_path = narg;
-			printf ("Set sock_path to %s\n", self->_sock_path);
+			printf ("Set _sock_path to %s\n", self->_sock_path);
+		}
+	}
+	else if (strcmp (arg, "-i") == 0)	/* -i PIDFILE_PATH */
+	{
+		/* Get the next argument */
+		narg = _client_get_next_arg (self, NULL);
+
+		/* Check that it is an option parameter (ie: doesn't start with '-') */
+		if (narg == NULL || narg[0] == '-') {
+			printf ("Expected: -i PIDFILE_PATH\n");
+			return 1;
+		} else {
+			self->_pid_path = narg;
+			printf ("Set _pid_path to %s\n", self->_pid_path);
+		}
+	}
+	else if (strcmp (arg, "-l") == 0)	/* -i LOGFILE_PATH */
+	{
+		/* Get the next argument */
+		narg = _client_get_next_arg (self, NULL);
+
+		/* Check that it is an option parameter (ie: doesn't start with '-') */
+		if (narg == NULL || narg[0] == '-') {
+			printf ("Expected: -l LOGFILE_PATH\n");
+			return 1;
+		} else {
+			self->_log_path = narg;
+			printf ("Set _log_path to %s\n", self->_log_path);
 		}
 	}
 
