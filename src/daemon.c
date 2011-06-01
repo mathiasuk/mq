@@ -182,6 +182,10 @@ Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path)
 	dup (0);						/* stderr */
 
 	logger_log (daemon->_log, INFO, "Daemon started with pid: %d", getpid ());
+	logger_log (daemon->_log, DEBUG, "Set logfile path to: %s", daemon->_log_path);
+	logger_log (daemon->_log, DEBUG, "Set pidfile path to: %s", daemon->_pid_path);
+	logger_log (daemon->_log, DEBUG, "Set socket path to: %s", daemon->_sock_path);
+
 	return daemon;
 }
 

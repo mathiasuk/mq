@@ -34,7 +34,6 @@ int main (int argc, char * argv[])
 	}
 
 	if (client_parse_args (client, argc, argv)) {
-		perror ("main:client_parse_args");
 		return EXIT_FAILURE;
 	}
 

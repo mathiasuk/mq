@@ -26,7 +26,8 @@
 #include "daemon.h"
 
 /* Private methods */
-char * _client_get_next_arg (Client * client);
+char * _client_get_next_arg (Client * self, int * i);
+int _client_parse_opt (Client * self, int i);
 
 /* 
  * Create and initialise the Cleint
@@ -78,6 +79,7 @@ Client * client_new (void)
 int client_parse_args (Client * self, int argc, char ** argv)
 {
 	char * arg;
+	int i;
 
 	self->_argc = argc;
 	self->_argv = argv;
@@ -86,8 +88,14 @@ int client_parse_args (Client * self, int argc, char ** argv)
 	 * '-' or '--'), if we find anything else we can assume that it should
 	 * be sent to the daemon */
 
-	while ((arg = _client_get_next_arg (self)) != NULL)
-		printf ("arg: %s\n", arg);
+	/* Loop until the first non-option argument */
+	while ((arg = _client_get_next_arg (self, &i)) != NULL && 
+		   arg[0] == '-') {
+		if (_client_parse_opt (self, i))
+			/* TODO: handle opt error */
+			return 1;
+			;
+	}
 
 	return 0;
 }
@@ -156,17 +164,60 @@ void client_run (Client * self)
     exit (EXIT_SUCCESS);
 }
 
+
 /* Private methods */
-char * _client_get_next_arg (Client * self)
+
+/* 
+ * Return the next argument
+ * args:   Client, pointer to int to store the index of the argument (can be
+ *		   NULL)
+ * return: Next argument or NULL 
+ */
+char * _client_get_next_arg (Client * self, int * i)
 {
-	static int i = 0;
+	static int j = 0;
 
-	i++;	/* Look for the next arg, this means we skip argv[0] */
+	j++;	/* Look for the next arg, this means we skip argv[0] */
 
-	if (i >= self->_argc)
+	if (j >= self->_argc)
 		return NULL;
 
-	return self->_argv[i];
+	if (i != NULL)
+		* i = j;
+	
+	return self->_argv[j];
+}
 
-	return NULL;
+/*
+ * Parse the option at _argv[i]
+ * args:   Client, index of option in Client->_argv
+ * return: 0 on success, 1 on error
+ */
+int _client_parse_opt (Client * self, int i)
+{
+	char * arg, * narg;
+
+	/* Check that the given index is within range */
+	if (i < 0 || i > self->_argc)
+		return 1;
+
+	arg = self->_argv[i];
+
+	/* -s SOCK_PATH */
+	if (strcmp (arg, "-s") == 0)
+	{
+		/* Get the next argument */
+		narg = _client_get_next_arg (self, NULL);
+
+		/* Check that it is an option parameter (ie: doesn't start with '-') */
+		if (narg == NULL || narg[0] == '-') {
+			printf ("Expected: -s SOCK_PATH\n");
+			return 1;
+		} else {
+			self->_sock_path = narg;
+			printf ("Set sock_path to %s\n", self->_sock_path);
+		}
+	}
+
+	return 0;
 }
