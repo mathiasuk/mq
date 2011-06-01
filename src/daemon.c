@@ -26,6 +26,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <sys/socket.h>
+#include <stdio.h>
 
 #include "daemon.h"
 #include "logger.h"
@@ -37,6 +38,7 @@
 #define FORK		1
 
 /* Private methods */
+static int _daemon_daemonize (Daemon * self);
 static void _daemon_parse_line (Daemon * self, char * line);
 static void _daemon_block_signals (Daemon * self);
 static void _daemon_unblock_signals (Daemon * self);
@@ -55,7 +57,6 @@ Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path)
 {
 	Daemon * daemon = malloc (sizeof (Daemon));
 	struct epoll_event event;
-	struct sigaction sigchld_action, sigterm_action;
 	int len;
 
 	if (!daemon)
@@ -126,66 +127,6 @@ Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path)
 		exit (EXIT_FAILURE);
 	}
 
-	/* Daemonize */
-
-	/* Create new process */
-	daemon->pid = fork ();
-	if (daemon->pid == -1)
-		logger_log (daemon->_log, CRITICAL, "daemon_setup:fork");
-	else if (daemon->pid != 0)
-		return daemon;
-
-	/* Create new session and process group */
-	if (setsid () == -1)
-		logger_log (daemon->_log, CRITICAL, "daemon_setup:setsid");
-
-	/* Set the working directory to the root directory */
-	if (chdir ("/") == -1)
-		logger_log (daemon->_log, CRITICAL, "daemon_setup:chdir");
-
-	/* Initialise the signal masks for SIGCHLD */
-	if (sigemptyset (&daemon->_blk_chld) == -1)
-		logger_log (daemon->_log, CRITICAL, "daemon_setup:sigemptyset");
-	if (sigaddset (&daemon->_blk_chld, SIGCHLD) == -1)
-		logger_log (daemon->_log, CRITICAL, "daemon_setup:sigaddset");
-
-	/* Initialise the signal masks for SIGTERM */
-	if (sigemptyset (&daemon->_blk_term) == -1)
-		logger_log (daemon->_log, CRITICAL, "daemon_setup:sigemptyset");
-	if (sigaddset (&daemon->_blk_term, SIGTERM) == -1)
-		logger_log (daemon->_log, CRITICAL, "daemon_setup:sigaddset");
-
-	/* Attach the signal handler for SIGCHLD */
-	sigchld_action.sa_sigaction = sigchld_handler;
-	sigemptyset (&sigchld_action.sa_mask);
-	/* We use SA_NOCLDWAIT as sa_sigaction will give us all the info regarding
-	 * the Process without waiting for it */
-	sigchld_action.sa_flags = SA_SIGINFO | SA_NOCLDWAIT;
-	if (sigaction (SIGCHLD, &sigchld_action, NULL) == -1)
-		logger_log (daemon->_log, CRITICAL, "daemon_setup:sigaction");
-
-	/* Attach the signal handler for SIGTERM */
-	sigterm_action.sa_handler = sigterm_handler;
-	sigemptyset (&sigterm_action.sa_mask);
-	sigchld_action.sa_flags = 0;
-	if (sigaction (SIGTERM, &sigterm_action, NULL) == -1)
-		logger_log (daemon->_log, CRITICAL, "daemon_setup:sigaction");
-
-	/* Close stdin, stdout, stderr */
-	close (0);
-	close (1);
-	close (2);
-
-	/* redirect stdin, stdout, stderr to /dev/null */
-	open ("/dev/null", O_RDWR);		/* stdin */
-	dup (0);						/* stdout */
-	dup (0);						/* stderr */
-
-	logger_log (daemon->_log, INFO, "Daemon started with pid: %d", getpid ());
-	logger_log (daemon->_log, DEBUG, "Set logfile path to: %s", daemon->_log_path);
-	logger_log (daemon->_log, DEBUG, "Set pidfile path to: %s", daemon->_pid_path);
-	logger_log (daemon->_log, DEBUG, "Set socket path to: %s", daemon->_sock_path);
-
 	return daemon;
 }
 
@@ -199,6 +140,10 @@ void daemon_run (Daemon * self)
 	struct epoll_event * events;
 	int i, n_events, sock;
 	struct epoll_event event;
+
+	/* Daemonize */
+	if (_daemon_daemonize (self))
+		return ;	/* In Client */
 	 
 	events = malloc (sizeof (struct epoll_event) * MAX_EVENTS);
 	if (!events)
@@ -370,6 +315,87 @@ void daemon_wait_process (Daemon * self, siginfo_t * siginfo)
 }
 
 /* Private methods */
+
+/*
+ * Daemonize (forks, etc.)
+ * args:   Daemon
+ * return: 0 in Daemon, 1 in Client (ie: parent process)
+ */
+static int _daemon_daemonize (Daemon * self)
+{
+	struct sigaction sigchld_action, sigterm_action;
+	FILE * pid_file;
+	pid_t pid;
+
+	/* Create new process */
+	pid = fork ();
+	if (pid == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:fork");
+	else if (pid != 0)		/* in Client */
+		return 1;
+
+	/* Write current PID to pid file */
+	pid_file = fopen (self->_pid_path, "w");
+	if (pid_file == NULL)
+		logger_log (self->_log, CRITICAL, "daemon_setup:fopen: '%s'", self->_pid_path);
+	if (fprintf (pid_file, "%d\n", getpid ()) == 0)
+		logger_log (self->_log, CRITICAL, "daemon_setup:fwrite");
+	if (fclose (pid_file) != 0)
+		logger_log (self->_log, CRITICAL, "daemon_setup:fclose");
+
+	/* Create new session and process group */
+	if (setsid () == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:setsid");
+
+	/* Set the working directory to the root directory */
+	if (chdir ("/") == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:chdir");
+
+	/* Initialise the signal masks for SIGCHLD */
+	if (sigemptyset (&self->_blk_chld) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:sigemptyset");
+	if (sigaddset (&self->_blk_chld, SIGCHLD) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:sigaddset");
+
+	/* Initialise the signal masks for SIGTERM */
+	if (sigemptyset (&self->_blk_term) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:sigemptyset");
+	if (sigaddset (&self->_blk_term, SIGTERM) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:sigaddset");
+
+	/* Attach the signal handler for SIGCHLD */
+	sigchld_action.sa_sigaction = sigchld_handler;
+	sigemptyset (&sigchld_action.sa_mask);
+	/* We use SA_NOCLDWAIT as sa_sigaction will give us all the info regarding
+	 * the Process without waiting for it */
+	sigchld_action.sa_flags = SA_SIGINFO | SA_NOCLDWAIT;
+	if (sigaction (SIGCHLD, &sigchld_action, NULL) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:sigaction");
+
+	/* Attach the signal handler for SIGTERM */
+	sigterm_action.sa_handler = sigterm_handler;
+	sigemptyset (&sigterm_action.sa_mask);
+	sigchld_action.sa_flags = 0;
+	if (sigaction (SIGTERM, &sigterm_action, NULL) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:sigaction");
+
+	/* Close stdin, stdout, stderr */
+	close (0);
+	close (1);
+	close (2);
+
+	/* redirect stdin, stdout, stderr to /dev/null */
+	open ("/dev/null", O_RDWR);		/* stdin */
+	dup (0);						/* stdout */
+	dup (0);						/* stderr */
+
+	logger_log (self->_log, INFO, "Daemon started with pid: %d", getpid ());
+	logger_log (self->_log, DEBUG, "Set logfile path to: %s", self->_log_path);
+	logger_log (self->_log, DEBUG, "Set pidfile path to: %s", self->_pid_path);
+	logger_log (self->_log, DEBUG, "Set socket path to: %s", self->_sock_path);
+
+	return 0;
+}
 
 /*
  * Parse line and proceed accordingly

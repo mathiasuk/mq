@@ -121,11 +121,8 @@ void client_run (Client * self)
 		exit (EXIT_FAILURE);
 	}
 
-	if (d->pid == 0) {
-		/* In daemon*/
-		daemon_run (d);	
-		exit (EXIT_FAILURE);	/* We should never reach this */
-	}
+	/* Run the daemon */
+	daemon_run (d);	
 
     if ((sock = socket (AF_UNIX, SOCK_STREAM, 0)) == -1) {
         perror ("socket");
