@@ -260,7 +260,14 @@ void daemon_stop (Daemon * self)
 
 	logger_log (self->_log, INFO, "Shutting daemon down");
 
+	/* Close the socket */
 	close (self->_sock);
+
+	/* Unlink the socket's path */
+    if (unlink (self->_sock_path) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_stop:unlink");
+
+	/* Close the logger */
 	logger_close (self->_log);
 
 	/* Unblock signals */
