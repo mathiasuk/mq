@@ -165,7 +165,8 @@ void daemon_run (Daemon * self)
 
 		/* Loop on all events */
 		for (i = 0; i < n_events; i++) {
-			if (events[i].data.fd == self->_sock) {
+			if (events[i].data.fd == self->_sock) 
+			{
 				/* Check that the socket is ready */
 				if (!(events[i].events & EPOLLIN))
 					logger_log (self->_log, CRITICAL,
@@ -182,10 +183,32 @@ void daemon_run (Daemon * self)
 				event.data.fd = sock;
 				if (epoll_ctl (self->_epfd, EPOLL_CTL_ADD, sock, &event) == -1)
 					logger_log (self->_log, CRITICAL, "daemon_setup:epoll_ctl (2)");
-			} else {
+			} 
+			else 
+			{
 				/* Handle the existing socket */
-				if (_daemon_read_socket(self, events[i].data.fd))
-					logger_log (self->_log, CRITICAL, "daemon_setup:_daemon_read_socket");
+				logger_log (self->_log, DEBUG,
+						"daemon_run: Unexpected event: %x (%d)", events[i].events, 
+						events[i].data.fd);
+
+				/* Read from socket if it's ready */
+				if (events[i].events & EPOLLIN) 
+				{
+					if (_daemon_read_socket(self, events[i].data.fd))
+						logger_log (self->_log, CRITICAL,
+									"daemon_setup:_daemon_read_socket");
+				}
+
+				/* Close socket if Client closed it */
+				if (events[i].events & EPOLLHUP)
+				{
+					logger_log (self->_log, DEBUG,
+							"Client closed socket (%d)", events[i].data.fd);
+					if (epoll_ctl (self->_epfd, EPOLL_CTL_DEL, 
+								   events[i].data.fd, NULL) == -1)
+						logger_log (self->_log, CRITICAL, "daemon_run:epoll_ctl");
+					close (events[i].data.fd);	
+				}
 			}
 		}
 	}
@@ -508,13 +531,14 @@ static int _daemon_read_socket (Daemon * self, int sock)
 	int len;
 
 	len = recv (sock, buf, 100, 0);
+
 	if (len < 0)
 		return 1;
 
 	/* Other side has closed the socket */
 	if (len == 0) {
 		if (close(sock) == -1)
-			return 1;
+			return 0;
 	}
 
 	/* Remove the EOL if any */
