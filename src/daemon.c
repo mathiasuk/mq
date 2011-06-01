@@ -210,7 +210,11 @@ void daemon_stop (Daemon * self)
 
 	/* Unlink the socket's path */
     if (unlink (self->_sock_path) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_stop:unlink");
+		logger_log (self->_log, CRITICAL, "daemon_stop:unlink '%s'", self->_sock_path);
+
+	/* Unlink the pid file */
+    if (unlink (self->_pid_path) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_stop:unlink '%s'", self->_pid_path);
 
 	/* Close the logger */
 	logger_close (self->_log);
