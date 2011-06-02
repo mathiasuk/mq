@@ -26,6 +26,14 @@
 #include "logger.h"
 #include "pslist.h"
 
+/* Type of messages sent to client */
+typedef enum {
+	OK,		/* exit successfully */
+	KO,		/* exit unsuccessfully */
+	OUT,	/* print message to stdout */
+	ERR		/* print message to stderr */
+} MessageType;
+
 typedef struct _Daemon Daemon;
 
 struct _Daemon 

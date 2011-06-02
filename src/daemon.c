@@ -39,7 +39,8 @@
 
 /* Private methods */
 static int _daemon_daemonize (Daemon * self);
-static void _daemon_parse_line (Daemon * self, char * line, int len);
+static MessageType _daemon_parse_line (Daemon * self, char * line,
+									   int len, char * message);
 static void _daemon_block_signals (Daemon * self);
 static void _daemon_unblock_signals (Daemon * self);
 static int _daemon_read_socket (Daemon * self, int sock);
@@ -426,21 +427,26 @@ static int _daemon_daemonize (Daemon * self)
 
 /*
  * Parse line and proceed accordingly
- * args:   Daemon, line to parse, length of the line
- * return: void
+ * args:   Daemon, line to parse, length of the line, pointer to a buffer for 
+ *		   message to send back to client (buffer must be freed after use)
+ * return: MessageType
  */
-static void _daemon_parse_line (Daemon * self, char * line, int len)
+static MessageType _daemon_parse_line (Daemon * self, char * line,
+									   int len, char * message)
 {
 	char * action, * s;
 	Process * p;
 	int argc = 0, i;
 	char ** argv;
 
+	/* Set the default return message to NULL */
+	message = NULL;
+
 	/* We expect line to be of the form:
 	 * "arg1\0arg2\0arg3\0\n" */
 
 	if (line == NULL)
-		return ;
+		return KO;
 
 	/* Strip heading whitespaces */
 	while (*line == ' ')
@@ -494,8 +500,11 @@ static void _daemon_parse_line (Daemon * self, char * line, int len)
 
 			/* Start processes if any CPUs are available */
 			daemon_run_processes (self);
+
+			return OK;
 		} else {
 			logger_log (self->_log, WARNING, "Missing command for add");
+			/* TODO: return message to client */
 		}
 	} else if (strcmp (action, "exit") == 0) {
 		daemon_stop (self);
@@ -506,6 +515,8 @@ static void _daemon_parse_line (Daemon * self, char * line, int len)
 	} else {
 		logger_log (self->_log, WARNING, "Unknown action: '%s'", line);
 	}
+
+	return KO;
 }
 
 /*
@@ -542,6 +553,8 @@ static void _daemon_unblock_signals (Daemon * self)
 static int _daemon_read_socket (Daemon * self, int sock)
 {
 	char buf[LINE_MAX];
+	MessageType mtype;
+	char * message = NULL;
 	int len;
 
 	len = recv (sock, buf, LINE_MAX, 0);
@@ -556,7 +569,7 @@ static int _daemon_read_socket (Daemon * self, int sock)
 	}
 
 	/* Parse the received line */
-	_daemon_parse_line (self, buf, len);	
+	mtype = _daemon_parse_line (self, buf, len, message);
 
 	return 0;
 }
