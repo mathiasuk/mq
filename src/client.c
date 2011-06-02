@@ -27,8 +27,8 @@
 #include "daemon.h"
 
 /* Private methods */
-char * _client_get_next_arg (Client * self, int * i);
-int _client_parse_opt (Client * self, int i);
+char * _client_get_next_arg (Client * self);
+int _client_parse_opt (Client * self);
 int _client_daemon_running (Client * self);
 
 /* 
@@ -70,6 +70,7 @@ Client * client_new (void)
 
 	client->_argc = 0;
 	client->_ncpus = 0;
+	client->_arg_index = 0;
 
 	return client;
 }
@@ -82,7 +83,6 @@ Client * client_new (void)
 int client_parse_args (Client * self, int argc, char ** argv)
 {
 	char * arg;
-	int i;
 
 	self->_argc = argc;
 	self->_argv = argv;
@@ -92,9 +92,9 @@ int client_parse_args (Client * self, int argc, char ** argv)
 	 * be sent to the daemon */
 
 	/* Loop until the first non-option argument */
-	while ((arg = _client_get_next_arg (self, &i)) != NULL && 
-		   arg[0] == '-') {
-		if (_client_parse_opt (self, i))
+	while ((arg = _client_get_next_arg (self)) != NULL && arg[0] == '-')
+	{
+		if (_client_parse_opt (self))
 			/* TODO: handle opt error */
 			return 1;
 			;
@@ -130,7 +130,6 @@ void client_run (Client * self)
 
 
 	/* Connect to the socket */
-
 	if ((sock = socket (AF_UNIX, SOCK_STREAM, 0)) == -1) {
 		perror ("socket");
 		exit (EXIT_FAILURE);
@@ -147,6 +146,20 @@ void client_run (Client * self)
     }
 
     printf ("Connected.\n");
+
+	/* Check if there any args left on the command line */
+	if (self->_arg_index > 0 &&
+		self->_arg_index < self->_argc &&
+		self->_argv[self->_arg_index] != NULL)
+	{
+		int i;
+		printf ("Would send command:.");
+		for (i = self->_arg_index; i < self->_argc; i++)
+			printf (" %s", self->_argv[i]);
+		printf (".\n");
+	}
+	else
+		printf ("No command provided\n");
 
     while (printf( "> "), fgets (buf, 100, stdin), !feof (stdin)) {
         if (send (sock, buf, strlen (buf), 0) == -1) {
@@ -179,40 +192,35 @@ void client_run (Client * self)
  *		   NULL)
  * return: Next argument or NULL 
  */
-char * _client_get_next_arg (Client * self, int * i)
+char * _client_get_next_arg (Client * self)
 {
-	static int j = 0;
+	self->_arg_index++;	/* Look for the next arg, this means we skip argv[0] */
 
-	j++;	/* Look for the next arg, this means we skip argv[0] */
-
-	if (j >= self->_argc)
+	if (self->_arg_index >= self->_argc)
 		return NULL;
 
-	if (i != NULL)
-		* i = j;
-	
-	return self->_argv[j];
+	return self->_argv[self->_arg_index];
 }
 
 /*
- * Parse the option at _argv[i]
+ * Parse the option at _argv[Client->_arg_index]
  * args:   Client, index of option in Client->_argv
  * return: 0 on success, 1 on error
  */
-int _client_parse_opt (Client * self, int i)
+int _client_parse_opt (Client * self)
 {
 	char * arg, * narg;
 
 	/* Check that the given index is within range */
-	if (i < 0 || i > self->_argc)
+	if (self->_arg_index < 0 || self->_arg_index > self->_argc)
 		return 1;
 
-	arg = self->_argv[i];
+	arg = self->_argv[self->_arg_index];
 
 	if (strcmp (arg, "-s") == 0)		/* -s SOCK_PATH */
 	{
 		/* Get the next argument */
-		narg = _client_get_next_arg (self, NULL);
+		narg = _client_get_next_arg (self);
 
 		/* Check that it is an option parameter (ie: doesn't start with '-') */
 		if (narg == NULL || narg[0] == '-') {
@@ -227,7 +235,7 @@ int _client_parse_opt (Client * self, int i)
 	else if (strcmp (arg, "-p") == 0)	/* -p PIDFILE_PATH */
 	{
 		/* Get the next argument */
-		narg = _client_get_next_arg (self, NULL);
+		narg = _client_get_next_arg (self);
 
 		/* Check that it is an option parameter (ie: doesn't start with '-') */
 		if (narg == NULL || narg[0] == '-') {
@@ -242,7 +250,7 @@ int _client_parse_opt (Client * self, int i)
 	else if (strcmp (arg, "-l") == 0)	/* -l LOGFILE_PATH */
 	{
 		/* Get the next argument */
-		narg = _client_get_next_arg (self, NULL);
+		narg = _client_get_next_arg (self);
 
 		/* Check that it is an option parameter (ie: doesn't start with '-') */
 		if (narg == NULL || narg[0] == '-') {
@@ -257,7 +265,7 @@ int _client_parse_opt (Client * self, int i)
 	else if (strcmp (arg, "-n") == 0)	/* -n NUMBER_CPUS */
 	{
 		/* Get the next argument */
-		narg = _client_get_next_arg (self, NULL);
+		narg = _client_get_next_arg (self);
 
 		/* Check that it is an option parameter (ie: doesn't start with '-') */
 		if (narg == NULL || narg[0] == '-') {

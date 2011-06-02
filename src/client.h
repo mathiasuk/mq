@@ -34,6 +34,7 @@ struct _Client
 	int _argc;
 	char ** _argv;
 	long _ncpus;			/* Number of available CPUs */
+	int _arg_index;			/* Index of the last read argument */
 };
 
 Client * client_new (void);
