@@ -33,6 +33,7 @@ struct _Client
 	char * _log_path;
 	int _argc;
 	char ** _argv;
+	int _sock;				/* Socket to Daemon */
 	long _ncpus;			/* Number of available CPUs */
 	int _arg_index;			/* Index of the last read argument */
 };

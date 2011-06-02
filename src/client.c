@@ -30,6 +30,7 @@
 char * _client_get_next_arg (Client * self);
 int _client_parse_opt (Client * self);
 int _client_daemon_running (Client * self);
+void _client_send_command (Client * self);
 
 /* 
  * Create and initialise the Cleint
@@ -69,6 +70,8 @@ Client * client_new (void)
 	sprintf (client->_log_path, "%s/%s", home, LOG_FILENAME);
 
 	client->_argc = 0;
+	client->_argv = NULL;
+	client->_sock = -1;
 	client->_ncpus = 0;
 	client->_arg_index = 0;
 
@@ -111,9 +114,8 @@ int client_parse_args (Client * self, int argc, char ** argv)
 void client_run (Client * self)
 {
 	extern Daemon * d;
-    int sock, len;
+    int len;
     struct sockaddr_un remote;
-	char buf[LINE_MAX];
 
 	/* Check if a daemon is already running, otherwise start one */
 	if (_client_daemon_running (self) == 0) 
@@ -130,7 +132,7 @@ void client_run (Client * self)
 
 
 	/* Connect to the socket */
-	if ((sock = socket (AF_UNIX, SOCK_STREAM, 0)) == -1) {
+	if ((self->_sock = socket (AF_UNIX, SOCK_STREAM, 0)) == -1) {
 		perror ("socket");
 		exit (EXIT_FAILURE);
 	}
@@ -140,7 +142,7 @@ void client_run (Client * self)
     remote.sun_family = AF_UNIX;
     strcpy (remote.sun_path, self->_sock_path);
     len = strlen (remote.sun_path) + sizeof (remote.sun_family);
-    if (connect (sock, (struct sockaddr *) &remote, len) == -1) {
+    if (connect (self->_sock, (struct sockaddr *) &remote, len) == -1) {
         perror ("connect");
         exit (EXIT_FAILURE);
     }
@@ -152,33 +154,31 @@ void client_run (Client * self)
 		self->_arg_index < self->_argc &&
 		self->_argv[self->_arg_index] != NULL)
 	{
-		int i;
-		printf ("Would send command:.");
-		for (i = self->_arg_index; i < self->_argc; i++)
-			printf (" %s", self->_argv[i]);
-		printf (".\n");
+		_client_send_command (self);
 	}
 	else
 		printf ("No command provided\n");
 
-    while (printf( "> "), fgets (buf, 100, stdin), !feof (stdin)) {
-        if (send (sock, buf, strlen (buf), 0) == -1) {
-            perror ("send");
-            exit (EXIT_FAILURE);
-        }
+/*
+ *     while (printf( "> "), fgets (buf, 100, stdin), !feof (stdin)) {
+ *         if (send (sock, buf, strlen (buf), 0) == -1) {
+ *             perror ("send");
+ *             exit (EXIT_FAILURE);
+ *         }
+ * 
+ *         [> if ((t=recv (sock, str, 100, 0)) > 0) { <]
+ *             [> str[t] = '\0'; <]
+ *             [> printf ("echo> %s", str); <]
+ *         [> } else { <]
+ *             [> if (t < 0) perror ("recv"); <]
+ *             [> else printf ("Server closed connection\n"); <]
+ *             [> exit (1); <]
+ *         [> } <]
+ *         break ;
+ *     }
+ */
 
-		/* if ((t=recv (sock, str, 100, 0)) > 0) { */
-			/* str[t] = '\0'; */
-			/* printf ("echo> %s", str); */
-		/* } else { */
-			/* if (t < 0) perror ("recv"); */
-			/* else printf ("Server closed connection\n"); */
-			/* exit (1); */
-		/* } */
-		break ;
-    }
-
-    close (sock);
+    close (self->_sock);
 
     exit (EXIT_SUCCESS);
 }
@@ -317,4 +317,31 @@ int _client_daemon_running (Client * self)
 
 
 	return 1;
+}
+
+/*
+ * Send the command (starting at _argv[_arg_index]) to the * Daemon
+ * args:   Client
+ * return: void
+ */
+void _client_send_command (Client * self)
+{
+	int i;
+	char * arg;
+
+	/* Send each argument separated by '\0' */
+	for (i = self->_arg_index; i < self->_argc; i++) {
+		arg = self->_argv[i];
+        if (send (self->_sock, arg, strlen (arg) + 1, 0) == -1) {
+            perror ("_client_send_command:send");
+            exit (EXIT_FAILURE);
+        }
+	}
+
+	/* Send an EOL */
+	*arg = '\n';
+	if (send (self->_sock, arg, 1, 0) == -1) {
+		perror ("_client_send_command:send");
+		exit (EXIT_FAILURE);
+	}
 }
