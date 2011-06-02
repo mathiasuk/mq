@@ -30,7 +30,7 @@ typedef enum {
 	EXITED,		/* Exited normally */
 	KILLED,		/* Killed */
 	DUMPED,		/* Terminated abnormally */
-	STOPPED,	/* Stopped */
+	STOPPED	/* Stopped */
 } PsState;
 
 typedef struct _Process Process;

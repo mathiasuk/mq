@@ -159,9 +159,9 @@ void daemon_run (Daemon * self)
 			logger_log (self->_log, CRITICAL, "daemon_run:epoll_wait");
 		}
 
-		if (n_events == 0)
+		if (n_events == 0) {
 			/* Waited for TIMEOUT ms */
-			;
+		}
 
 		/* Loop on all events */
 		for (i = 0; i < n_events; i++) {

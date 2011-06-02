@@ -1,1 +1,2 @@
 - Write errors to stderr in Client
+- Add a shell mode to client

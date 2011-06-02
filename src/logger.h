@@ -26,7 +26,7 @@ typedef enum {
 	INFO,
 	WARNING,
 	CRITICAL,
-	DEBUG,
+	DEBUG
 } LogLevel;
 
 typedef struct _Logger Logger;

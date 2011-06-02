@@ -97,12 +97,12 @@ void logger_set_debugging (Logger * self, short int debugging)
  */
 void logger_log (Logger * self, LogLevel level, char * fmt, ...)
 {
-	if (self == NULL)
-		return ;
-
 	va_list list;
 	char * level_str;
 	char * s_err;
+
+	if (self == NULL)
+		return ;
 
 	switch (level)
 	{
@@ -161,7 +161,7 @@ static void _logger (Logger * self, const char * prefix, char * fmt, va_list lis
 		perror ("_logger:localtime");
 		exit (EXIT_FAILURE);
 	}
-	if (strftime (time_str, sizeof (time_str), "%b %e %H:%M:%S ", tm) == 0) {
+	if (strftime (time_str, sizeof (time_str), "%b %d %H:%M:%S ", tm) == 0) {
 		perror ("_logger:strftime");
 		exit (EXIT_FAILURE);
 	}
