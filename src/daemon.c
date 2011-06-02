@@ -204,9 +204,6 @@ void daemon_run (Daemon * self)
 				{
 					logger_log (self->_log, DEBUG,
 							"Client closed socket (%d)", events[i].data.fd);
-					if (epoll_ctl (self->_epfd, EPOLL_CTL_DEL, 
-								   events[i].data.fd, NULL) == -1)
-						logger_log (self->_log, CRITICAL, "daemon_run:epoll_ctl");
 					close (events[i].data.fd);	
 				}
 			}
