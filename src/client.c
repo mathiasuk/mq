@@ -219,6 +219,7 @@ int _client_parse_opt (Client * self, int i)
 			printf ("Expected: -s SOCK_PATH\n");
 			return 1;
 		} else {
+			free (self->_sock_path);
 			self->_sock_path = narg;
 			printf ("Set _sock_path to %s\n", self->_sock_path);
 		}
@@ -233,6 +234,7 @@ int _client_parse_opt (Client * self, int i)
 			printf ("Expected: -p PIDFILE_PATH\n");
 			return 1;
 		} else {
+			free (self->_pid_path);
 			self->_pid_path = narg;
 			printf ("Set _pid_path to %s\n", self->_pid_path);
 		}
@@ -247,6 +249,7 @@ int _client_parse_opt (Client * self, int i)
 			printf ("Expected: -l LOGFILE_PATH\n");
 			return 1;
 		} else {
+			free (self->_log_path);
 			self->_log_path = narg;
 			printf ("Set _log_path to %s\n", self->_log_path);
 		}
