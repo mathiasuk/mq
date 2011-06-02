@@ -39,7 +39,7 @@
 
 /* Private methods */
 static int _daemon_daemonize (Daemon * self);
-static void _daemon_parse_line (Daemon * self, char * line);
+static void _daemon_parse_line (Daemon * self, char * line, int len);
 static void _daemon_block_signals (Daemon * self);
 static void _daemon_unblock_signals (Daemon * self);
 static int _daemon_read_socket (Daemon * self, int sock);
@@ -187,9 +187,6 @@ void daemon_run (Daemon * self)
 			else 
 			{
 				/* Handle the existing socket */
-				logger_log (self->_log, DEBUG,
-						"daemon_run: Unexpected event: %x (%d)", events[i].events, 
-						events[i].data.fd);
 
 				/* Read from socket if it's ready */
 				if (events[i].events & EPOLLIN) 
@@ -202,6 +199,8 @@ void daemon_run (Daemon * self)
 				/* Close socket if Client closed it */
 				if (events[i].events & EPOLLHUP)
 				{
+					/* This should not be necessary according to epoll(7)
+					 * but removing it causes "Bad file descriptor" errors */
 					if (epoll_ctl (self->_epfd, EPOLL_CTL_DEL, 
 						events[i].data.fd, NULL) == -1)
 						logger_log (self->_log, CRITICAL, "daemon_run:epoll_ctl");
@@ -427,13 +426,18 @@ static int _daemon_daemonize (Daemon * self)
 
 /*
  * Parse line and proceed accordingly
- * args:   Daemon, line to parse
+ * args:   Daemon, line to parse, length of the line
  * return: void
  */
-static void _daemon_parse_line (Daemon * self, char * line)
+static void _daemon_parse_line (Daemon * self, char * line, int len)
 {
-	char * action, * line_d, * s;
+	char * action, * s;
 	Process * p;
+	int argc = 0, i;
+	char ** argv;
+
+	/* We expect line to be of the form:
+	 * "arg1\0arg2\0arg3\0\n" */
 
 	if (line == NULL)
 		return ;
@@ -442,28 +446,38 @@ static void _daemon_parse_line (Daemon * self, char * line)
 	while (*line == ' ')
 		line++;
 
-	/* Strip trailing whitespaces */
-	while (line[strlen (line)-1] == ' ')
-		line[strlen (line)-1] = '\0';
+	/* Count the number of arguments (ie: number of '\0') */
+	for (i = 0; line[i] != '\n'; i++)
+		if (line[i] == '\0')
+			argc++;
 
-	if (!strlen (line))
-		return ;
+	/* Convert the line to an array of char *, we add one slot to
+	 * NULL terminate the array */
+	argv = malloc (sizeof (char *) * (argc + 1));
+	if (!argv)
+		logger_log (self->_log, CRITICAL, "_daemon_parse_line:malloc");
+	for (i = 0; i < argc; i++) {
+		argv[i] = line;
+		/* Move the the next argument in line */
+		line += strlen(line) + 1;
+	}
+	/* NULL terminate the array (for execp) */
+	argv[argc] = NULL;
 
-	/* We duplicate the 'line' string as strtok modifies it */
-	if ((line_d = strdup (line)) == NULL)
-		logger_log (self->_log, CRITICAL, "_daemon_parse_line:strdup:");
+	/* Parse the action (first argument), this should always exist */
+	action = argv[0];
 
-	/* Parse the action (first word of the line) */
-	action = strtok (line_d, " ");
+	/* Move to the next argument */
+	argv++;
 
 	/* TODO: split each action in its own private method */
 
 	if (strcmp (action, "add") == 0) {
 		/* Check for extra arguments */
-		if (strtok (NULL, " ")) {
-			/* Create Process: 
-			 * "line + strlen(action) + 1" skips the "add " from the line*/
-			p = process_new (line + strlen (action) + 1);
+		if (*argv != NULL)
+		{
+			/* Create Process:  */
+			p = process_new (argv);
 			if (p == NULL)
 				logger_log (self->_log, CRITICAL, 
 						    "_daemon_parse_line:process_new");
@@ -471,18 +485,17 @@ static void _daemon_parse_line (Daemon * self, char * line)
 			if (s == NULL)
 				logger_log (self->_log, CRITICAL,
 							"_daemon_parse_line:process_str");
-			free (s);
 			/* Add process to pslist */
 			if (pslist_append (self->_pslist, p))
 				logger_log (self->_log, CRITICAL,
 						    "_daemon_parse_line:pslit_append");
 			logger_log (self->_log, DEBUG, "Added Process to queue: '%s'", s);
+			free (s);
 
 			/* Start processes if any CPUs are available */
 			daemon_run_processes (self);
 		} else {
-			logger_log (self->_log, WARNING, "Missing command for add: '%s'", 
-					    line);
+			logger_log (self->_log, WARNING, "Missing command for add");
 		}
 	} else if (strcmp (action, "exit") == 0) {
 		daemon_stop (self);
@@ -531,7 +544,7 @@ static int _daemon_read_socket (Daemon * self, int sock)
 	char buf[LINE_MAX];
 	int len;
 
-	len = recv (sock, buf, 100, 0);
+	len = recv (sock, buf, LINE_MAX, 0);
 
 	if (len < 0)
 		return 1;
@@ -542,14 +555,8 @@ static int _daemon_read_socket (Daemon * self, int sock)
 			return 0;
 	}
 
-	/* Remove the EOL if any */
-	if (len > 1 && buf[len - 1] == '\n')
-		buf[len - 1] = '\0';
-	else
-		buf[len] = '\0';
-
-	logger_log (self->_log, DEBUG, "Read line: '%s'", buf);
-	_daemon_parse_line (self, buf);	
+	/* Parse the received line */
+	_daemon_parse_line (self, buf, len);	
 
 	return 0;
 }

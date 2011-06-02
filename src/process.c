@@ -28,16 +28,16 @@
 
 /* 
  * Create a Process object
- * args:   command line
+ * args:   argv, argc
  * return: process or NULL on error
  */
-Process * process_new (const char * command)
+Process * process_new (char ** argv)
 {
 	Process * process = malloc (sizeof (Process));
 	if (!process)
 		return NULL;
 
-	process->_command = command;
+	process->_argv = argv;
 	process->_state = WAITING;
 	process->_pid = 0;
 	process->_ret = 0;
@@ -53,11 +53,13 @@ Process * process_new (const char * command)
 char * process_str (Process * self)
 {
 	char * ret;
+	/* FIXME: transform _argv to string */
 	/* TODO: only show PID if process is running? */
-	if ((ret = malloc (snprintf (NULL, 0, "%-30s, PID: %d", self->_command,
-								 self->_pid))) == NULL)
-		return NULL;
-	sprintf (ret, "%-30s, PID: %d", self->_command, self->_pid);
+	/* if ((ret = malloc (snprintf (NULL, 0, "%-30s, PID: %d", self->_command, */
+								 /* self->_pid))) == NULL) */
+		/* return NULL; */
+	/* sprintf (ret, "%-30s, PID: %d", self->_command, self->_pid); */
+	ret = strdup (self->_argv[0]);
 
 	return ret;
 }
@@ -69,21 +71,6 @@ char * process_str (Process * self)
  */
 int process_run (Process * self)
 {
-	char * args[MAX_ARGS];
-	char * command = strdup (self->_command);
-	int i = 0;
-
-	/* Transform the command line in an array
-	 * of null terminated strings */
-	args[i++] = command;
-	while (*command != '\0') {
-		if (*command == ' ') {
-			*command = '\0';
-			args[i++] = ++command;
-		} else ++command;
-	}
-	args[i] = NULL;
-
 	/* Create new process */
 	self->_pid = fork ();
 	if (self->_pid == -1)
@@ -94,7 +81,7 @@ int process_run (Process * self)
 	}
 
 	/* Exec the process */
-	execvp (args[0], args);
+	execvp (self->_argv[0], self->_argv);
 
 	return 1;	/* if we reach this something went wrong*/
 }

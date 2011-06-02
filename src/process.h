@@ -37,13 +37,13 @@ typedef struct _Process Process;
 
 struct _Process 
 {
-	const char * _command;
+	char ** _argv;	/* Arguments for the process, NULL terminated */
 	PsState _state;
 	pid_t _pid;
 	int _ret;		/* Return value */
 };
 
-Process * process_new (const char * command);
+Process * process_new (char ** argv);
 char * process_str (Process * self);
 int process_run (Process * self);
 int process_wait (Process * self, siginfo_t * siginfo);
