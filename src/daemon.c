@@ -201,9 +201,6 @@ void daemon_run (Daemon * self)
 				/* Write to socket if it's ready */
 				if (events[i].events & EPOLLOUT) 
 				{
-					logger_log (self->_log, INFO, "Ready to write to %d (len: %d)",
-								events[i].data.fd, self->_mlist->_len);
-
 					/* Look for any Message for the current socket */
 					message = messagelist_get_message_by_sock (self->_mlist,
 															   events[i].data.fd);
@@ -218,6 +215,8 @@ void daemon_run (Daemon * self)
 					/* Send the message */
 					if (message_send (message))
 						logger_log (self->_log, CRITICAL, "daemon_run:message_send");
+					logger_log (self->_log, DEBUG, "Sent message to socket (%d)",
+								events[i].data.fd);
 
 					/* Remove message from the MessageList */
 					if (messagelist_remove (self->_mlist, message))
