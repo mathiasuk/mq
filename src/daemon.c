@@ -549,12 +549,10 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 			/* Start processes if any CPUs are available */
 			daemon_run_processes (self);
 
-			*message = "this\nis a\nmultiline\noutput\n";
-
 			return OK;
 		} else {
-			logger_log (self->_log, WARNING, "Missing command for add");
-			/* TODO: return message to client */
+			logger_log (self->_log, WARNING, "Expected: 'add COMMAND'");
+			*message = "Missing command for add\n";
 		}
 	} else if (strcmp (action, "exit") == 0) {
 		daemon_stop (self);
@@ -569,7 +567,7 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 	} else {
 		logger_log (self->_log, WARNING, "Unknown action: '%s'", line);
 	}
-	return OK;
+	return KO;
 }
 
 /*
