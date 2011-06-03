@@ -353,24 +353,53 @@ void _client_send_command (Client * self)
 }
 
 /*
- * Receive a command from the Daemon
+ * Receive a message from the Daemon
  * args:   Client
  * return: EXIT_SUCESS, EXIT_FAILURE
  */
 int _client_recv_message (Client * self)
 {
 	MessageType type;
-	int len;
+	char buf[LINE_MAX];
+	int len, fd, ret;
 
-	len = recv (self->_sock, &type, sizeof (type), 0);
-	if (len == -1) {
-		perror ("_client_recv_command:recv");
-		exit (EXIT_FAILURE);
+	for (;;) 
+	{
+		/* Read the line prefix */
+		len = recv (self->_sock, &type, sizeof (type), 0);
+		if (len == -1) {
+			perror ("_client_recv_command:recv");
+			exit (EXIT_FAILURE);
+		}
+		if (len == 0) {
+			printf ("Expected MessageType not received\n");
+			exit (EXIT_FAILURE);
+		}
+
+		if (type == OK || type == KO)
+			break;
+
+		/* Read a line from the socket */
+		for (len = 0; len < LINE_MAX - 1; len++)	/* LINE_MAX - 1 to squeeze a '\0' */
+		{
+			ret = recv (self->_sock, &buf[len], sizeof (char), 0);
+			if (len == -1) {
+				perror ("_client_recv_command:recv");
+				exit (EXIT_FAILURE);
+			}
+
+			if (buf[len] == '\n')
+				break;
+		}
+
+		/* Print the line on stdout/err */
+		if (type == OUT)
+			fd = 1;
+		else
+			fd = 2;
+		write (fd, buf, len + 1);
 	}
-	if (len == 0) {
-		printf ("Expected MessageType not received\n");
-		exit (EXIT_FAILURE);
-	}
+
 
 	if (type == OK)
 		return (EXIT_SUCCESS);
