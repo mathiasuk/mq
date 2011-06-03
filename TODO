@@ -1,3 +1,5 @@
 - Write errors to stderr in Client
-- Add a shell mode to client
 - Check that the client doesn't send more than LINE_MAX characters
+- strdup char * message in message_new () and add message_del ()
+- Check if pid in pidfile is running
+- Add a shell mode to client
