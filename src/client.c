@@ -141,8 +141,6 @@ void client_run (Client * self)
 		exit (EXIT_FAILURE);
 	}
 
-	printf ("Trying to connect...\n");
-
     remote.sun_family = AF_UNIX;
     strcpy (remote.sun_path, self->_sock_path);
     len = strlen (remote.sun_path) + sizeof (remote.sun_family);
@@ -150,8 +148,6 @@ void client_run (Client * self)
         perror ("connect");
         exit (EXIT_FAILURE);
     }
-
-    printf ("Connected.\n");
 
 	/* Check if there any args left on the command line */
 	if (self->_arg_index > 0 &&
@@ -319,8 +315,6 @@ int _client_daemon_running (Client * self)
 	}
 	buf[len] = '\0';
 	pid = atoi (buf);
-	printf ("daemon running with pid: %d\n", pid);
-
 
 	return 1;
 }
