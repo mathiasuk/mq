@@ -18,6 +18,7 @@
  */
 
 #include <stdlib.h>
+#include <sys/socket.h>
 
 #include "message.h"
 
@@ -38,4 +39,20 @@ Message * message_new (MessageType type, char * content, int sock)
 	message->sock = sock;
 
 	return message;
+}
+
+/*
+ * Send the current message on the socket
+ * args:   Message
+ * return: 0 on success, 1 on eror
+ */
+int message_send (Message * self)
+{
+	/* Check that the socket is valid */
+	if (self->sock < 1)
+		return 1;
+
+	if (send (self->sock, &self->_type, sizeof (MessageType), 0) == -1)
+		return 1;
+	return 0;
 }

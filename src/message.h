@@ -42,5 +42,6 @@ struct _Message
 };
 
 Message * message_new (MessageType type, char * message, int sock);
+int message_send (Message * self);
 
 #endif /* CLIENT_H */
