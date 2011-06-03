@@ -40,7 +40,7 @@
 /* Private methods */
 static int _daemon_daemonize (Daemon * self);
 static MessageType _daemon_parse_line (Daemon * self, char * line,
-									   int len, char * message);
+									   int len, char ** message);
 static void _daemon_block_signals (Daemon * self);
 static void _daemon_unblock_signals (Daemon * self);
 static int _daemon_read_socket (Daemon * self, int sock);
@@ -480,7 +480,7 @@ static int _daemon_daemonize (Daemon * self)
  * return: MessageType
  */
 static MessageType _daemon_parse_line (Daemon * self, char * line,
-									   int len, char * message)
+									   int len, char ** message)
 {
 	char * action, * s;
 	Process * p;
@@ -488,7 +488,7 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 	char ** argv;
 
 	/* Set the default return message to NULL */
-	message = NULL;
+	*message = NULL;
 
 	/* We expect line to be of the form:
 	 * "arg1\0arg2\0arg3\0\n" */
@@ -548,6 +548,8 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 
 			/* Start processes if any CPUs are available */
 			daemon_run_processes (self);
+
+			*message = "this\nis a\nmultiline\noutput\n";
 
 			return OK;
 		} else {
@@ -622,7 +624,7 @@ static int _daemon_read_socket (Daemon * self, int sock)
 	}
 
 	/* Parse the received line */
-	type = _daemon_parse_line (self, buf, len, message_content);
+	type = _daemon_parse_line (self, buf, len, &message_content);
 
 	/* Create new return message */
 	message = message_new (type, message_content, sock);
