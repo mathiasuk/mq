@@ -66,6 +66,34 @@ int list_append (List * self, void * item)
 	return 0;
 }
 
+/*
+ * Remove item from the list
+ * args:   List, pointer to item
+ * return: 0 on sucess, 1 if item not found, -1 on error
+ */
+int list_remove (List * self, void * item)
+{
+	int i, j;
+	/* TODO: reduce size by CHUNK_SIZE If necessary */
+
+	/* Look for the item in list */
+	for (i = 0; i < self->_len && self->_list[i] != item; i++)
+		;
+
+	if (i == self->_len)
+		/* Couldn't find item */
+		return 1;
+
+	/* Left shift all items after our item, effectively removing it */
+	for (j = i; j < self->_len - 2; j ++)
+		self->_list[j] = self->_list[j + 1];
+
+	/* Decrease the lengh of the list */
+	self->_len--;
+
+	return 0;
+}
+
 /* 
  * Get the item at the given index
  * args:   List, index
