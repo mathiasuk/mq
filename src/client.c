@@ -31,6 +31,7 @@ char * _client_get_next_arg (Client * self);
 int _client_parse_opt (Client * self);
 int _client_daemon_running (Client * self);
 void _client_send_command (Client * self);
+int _client_recv_message (Client * self);
 
 /* 
  * Create and initialise the Cleint
@@ -114,12 +115,13 @@ int client_parse_args (Client * self, int argc, char ** argv)
 void client_run (Client * self)
 {
 	extern Daemon * d;
-    int len;
+    int len, ret;
     struct sockaddr_un remote;
 
 	/* Check if a daemon is already running, otherwise start one */
 	if (_client_daemon_running (self) == 0) 
 	{
+		printf ("Starting daemon...");
 		d = daemon_new (self->_sock_path, self->_pid_path, self->_log_path);
 		if (d == NULL) {
 			perror ("client_run:daemon_new");
@@ -128,6 +130,8 @@ void client_run (Client * self)
 
 		/* Run the daemon */
 		daemon_run (d);	
+
+		printf (" done\n");
 	}
 
 
@@ -159,6 +163,8 @@ void client_run (Client * self)
 	else
 		printf ("No command provided\n");
 
+	ret = _client_recv_message (self);
+
 /*
  *     while (printf( "> "), fgets (buf, 100, stdin), !feof (stdin)) {
  *         if (send (sock, buf, strlen (buf), 0) == -1) {
@@ -180,7 +186,7 @@ void client_run (Client * self)
 
     close (self->_sock);
 
-    exit (EXIT_SUCCESS);
+    exit (ret);
 }
 
 
@@ -344,4 +350,30 @@ void _client_send_command (Client * self)
 		perror ("_client_send_command:send");
 		exit (EXIT_FAILURE);
 	}
+}
+
+/*
+ * Receive a command from the Daemon
+ * args:   Client
+ * return: EXIT_SUCESS, EXIT_FAILURE
+ */
+int _client_recv_message (Client * self)
+{
+	MessageType type;
+	int len;
+
+	len = recv (self->_sock, &type, sizeof (type), 0);
+	if (len == -1) {
+		perror ("_client_recv_command:recv");
+		exit (EXIT_FAILURE);
+	}
+	if (len == 0) {
+		printf ("Expected MessageType not received\n");
+		exit (EXIT_FAILURE);
+	}
+
+	if (type == OK)
+		return (EXIT_SUCCESS);
+	else
+		return (EXIT_FAILURE);
 }
