@@ -1,4 +1,4 @@
-CC=gcc -Wall -Wextra -Wno-unused-parameter -pedantic -g
+CC=gcc -Werror -Wall -Wextra -Wno-unused-parameter -pedantic -g
 SOURCES = client.c daemon.c logger.c process.c list.c pslist.c message.c messagelist.c
 OBJS    = ${SOURCES:.c=.o}
 
