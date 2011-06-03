@@ -115,8 +115,11 @@ char * _message_get_next_line (Message * self)
 		;
 
 	/* If we're at \0 we've already sent the last line in the previous call */
-	if (startp[len] == '\0')
+	if (startp[len] == '\0') {
+		/* Reset start index */
+		start = 0;
 		return NULL;
+	}
 
 	line = malloc (sizeof (char *) * (len + 2));
 	if (line == NULL)
