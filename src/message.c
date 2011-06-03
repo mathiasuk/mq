@@ -53,16 +53,40 @@ Message * message_new (MessageType type, char * content, int sock)
 int message_send (Message * self)
 {
 	char * line; 
+	MessageType ptype;
 
 	/* Check that the socket is valid */
 	if (self->sock < 1)
 		return 1;
 
-	while ((line = _message_get_next_line (self)) != NULL)
-		;
+	/* Set the type send to prefix content lines */
+	if (self->_type == OK)
+		ptype = OUT;
+	else
+		ptype = ERR;
 
+	/* Send each line from the content (if any) */
+	while ((line = _message_get_next_line (self)) != NULL)
+	{
+		/* Send the message type */
+		if (send (self->sock, &ptype, sizeof (MessageType), 0) == -1) {
+			free (line);
+			return 1;
+		}
+
+		/* Send the line */
+		if (send (self->sock, line, strlen (line), 0) == -1) {
+			free (line);
+			return 1;
+		}
+
+		free (line);
+	}
+
+	/* Send the "exit code" */
 	if (send (self->sock, &self->_type, sizeof (MessageType), 0) == -1)
 		return 1;
+
 	return 0;
 }
 
