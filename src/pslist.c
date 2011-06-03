@@ -23,48 +23,35 @@
 #include "pslist.h"
 
 /* 
- * Create and initialise the PsList
+ * Wrapper around list_new ()
  * args:   void
  * return: PsList or NULL on error
  */
 PsList * pslist_new (void)
 {
-	PsList * pslist = malloc (sizeof (PsList));
-	if (!pslist)
-		return NULL;
-
-	/* Initial size is CHUNK_SIZE elements */
-	pslist->_list = malloc (CHUNK_SIZE * sizeof (PsList *));
-	if (!pslist->_list)
-		return NULL;
-
-	pslist->_len = 0;
-
-	return pslist;
+	return list_new ();
 }
 
 /* 
- * Add a Process to the PsList
+ * Wrapper around list_append ()
  * args:   PsList, Process
  * return: 0 on success
  */
 int pslist_append (PsList * self, Process * process)
 {
-	/* If the current list is full we extend it by CHUNK_SIZE */
-	if (self->_len % CHUNK_SIZE == 0) {
-		Process ** tmp_list;
-		tmp_list = realloc (self->_list, (self->_len + CHUNK_SIZE) * sizeof (PsList *));
-		if (tmp_list == NULL)
-			return -1;
-		else
-			self->_list = tmp_list;
-
-	}
-
-	self->_list[self->_len] = process;
-	self->_len++;
-	return 0;
+	return list_append (self, process);
 }
+
+/* 
+ * Wrapper around list_get_item ()
+ * args:   Pslit, index
+ * return: Process at index, or NULL on error
+ */
+Process * pslist_get_ps (PsList * self, int index)
+{
+	return list_get_item (self, index);
+}
+
 
 /*
  * Get the list of processes in a given state
@@ -90,20 +77,6 @@ int pslist_get_nps (PsList * self, PsState state, int * list)
 	}
 
 	return len;
-}
-
-/* 
- * Get the process at the given index
- * args:   Pslit, index
- * return: Process at index, or NULL on error
- */
-Process * pslist_get_ps (PsList * self, int index)
-{
-	/* Check that the given index is within the range */
-	if ((index < 0) || (index >= self->_len))
-		return NULL;
-
-	return self->_list[index];
 }
 
 /* 

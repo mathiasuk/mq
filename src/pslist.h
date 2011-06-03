@@ -20,22 +20,19 @@
 #ifndef PSLIST_H
 #define PSLIST_H
 
-#define CHUNK_SIZE	10	/* amount to increase/decrease list's size */
-
+#include "list.h"
 #include "process.h"
 
-typedef struct _PsList PsList;
+/* PsList is a wrapper around List which provides new methods */
+typedef List PsList;
 
-struct _PsList 
-{
-	Process ** _list;
-	int _len;
-};
-
+/* Wrappers to List's methods */
 PsList * pslist_new (void);
 int pslist_append (PsList * self, Process * process);
-int pslist_get_nps (PsList * self, PsState state, int * list);
 Process * pslist_get_ps (PsList * self, int index);
+
+/* New methods */
+int pslist_get_nps (PsList * self, PsState state, int * list);
 Process * pslist_get_ps_by_pid (PsList * self, pid_t pid);
 
 #endif /* PSLIST_H */
