@@ -556,15 +556,18 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 		}
 	} else if (strcmp (action, "exit") == 0) {
 		daemon_stop (self);
+		/* FIXME: OK is never returned as daemon is stopped ... */
+		return OK;
 	} else if (strcmp (action, "debug") == 0) {
 		logger_set_debugging (self->_log, 1);
+		return OK;
 	} else if (strcmp (action, "nodebug") == 0) {
 		logger_set_debugging (self->_log, 0);
+		return OK;
 	} else {
 		logger_log (self->_log, WARNING, "Unknown action: '%s'", line);
 	}
-
-	return KO;
+	return OK;
 }
 
 /*
