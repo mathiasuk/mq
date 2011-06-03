@@ -22,6 +22,7 @@
 #include <limits.h>
 #include <sys/socket.h>
 #include <errno.h>
+#include <sys/stat.h>
 
 #include "client.h"
 #include "daemon.h"
@@ -292,7 +293,8 @@ int _client_daemon_running (Client * self)
 	FILE * f;
 	char buf[LINE_MAX];
 	size_t len;
-	pid_t pid;
+	struct stat s;
+	char * proc_path;
 
 	/* Try to open the PID file */
 	f = fopen (self->_pid_path, "r");
@@ -314,7 +316,26 @@ int _client_daemon_running (Client * self)
 		exit (EXIT_FAILURE);
 	}
 	buf[len] = '\0';
-	pid = atoi (buf);
+
+	/* Construct /proc path */
+	proc_path = malloc (snprintf (NULL, 0, "/proc/%s", buf) + 1);
+	if (proc_path == NULL) {
+		perror ("_client_daemon_running:malloc");
+		exit (EXIT_FAILURE);
+	}
+	sprintf (proc_path, "/proc/%s", buf);
+
+	/* Check if PID is running (ie: /proc/PID exists) */
+	if (stat (proc_path, &s) == -1) {
+		if (errno == ENOENT) {
+			/* PID file exists but PID is not running */
+			printf ("%s exists but Daemon is not running, Please check log file %s\n", self->_pid_path, self->_log_path);
+
+			return 0;
+		}
+		perror ("_client_daemon_running:stat");
+		exit (EXIT_FAILURE);
+	}
 
 	return 1;
 }
