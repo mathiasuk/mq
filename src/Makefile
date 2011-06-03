@@ -1,5 +1,5 @@
 CC=gcc -Wall -Wextra -Wno-unused-parameter -pedantic -g
-SOURCES = client.c daemon.c logger.c process.c pslist.c
+SOURCES = client.c daemon.c logger.c process.c pslist.c message.c
 OBJS    = ${SOURCES:.c=.o}
 
 mq: main.c ${OBJS}
