@@ -19,8 +19,12 @@
 
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <string.h>
 
 #include "message.h"
+
+/* Private methods */
+char * _message_get_next_line (Message * self);
 
 /* 
  * Create and initialise a message
@@ -48,11 +52,57 @@ Message * message_new (MessageType type, char * content, int sock)
  */
 int message_send (Message * self)
 {
+	char * line; 
+
 	/* Check that the socket is valid */
 	if (self->sock < 1)
 		return 1;
 
+	while ((line = _message_get_next_line (self)) != NULL)
+		;
+
 	if (send (self->sock, &self->_type, sizeof (MessageType), 0) == -1)
 		return 1;
 	return 0;
+}
+
+
+/* Private methods */
+
+/* 
+ * Return the next line from message
+ * args:   Message
+ * return: next line or NULL
+ */
+char * _message_get_next_line (Message * self)
+{
+	static int start = 0;
+	char * line, * startp;
+	int len;
+	
+	if (self->_content == NULL)
+		return NULL;
+
+	/* Set the starting pointer position */
+	startp = self->_content + start;
+
+	/* Count the number of char until the first \n */
+	for (len = 0; startp[len] != '\0' && startp[len] != '\n'; len++)
+		;
+
+	/* If we're at \0 we've already sent the last line in the previous call */
+	if (startp[len] == '\0')
+		return NULL;
+
+	line = malloc (sizeof (char *) * (len + 2));
+	if (line == NULL)
+		return NULL;	/* FIXME: the error should be reported somehow */
+		
+	strncpy (line, startp, len + 2);
+	line[len + 1] = '\0';
+	
+	/* Advance the starting point */
+	start += len + 1;
+
+	return line;
 }
