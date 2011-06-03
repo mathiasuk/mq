@@ -122,9 +122,17 @@ Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path)
 	if (epoll_ctl (daemon->_epfd, EPOLL_CTL_ADD, daemon->_sock, &event) == -1)
 		logger_log (daemon->_log, CRITICAL, "daemon_setup:epoll_ctl");
 
+	/* Initialise PsList */
 	daemon->_pslist = pslist_new ();
 	if (daemon->_pslist == NULL) {
 		perror ("daemon_new:pslist_new");
+		exit (EXIT_FAILURE);
+	}
+
+	/* Initialise list of Messages */
+	daemon->_mlist = messagelist_new ();
+	if (daemon->_mlist == NULL) {
+		perror ("daemon_new:list_new");
 		exit (EXIT_FAILURE);
 	}
 

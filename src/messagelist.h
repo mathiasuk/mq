@@ -1,6 +1,6 @@
 /* 
  * This file is part of mq.
- * mq - src/message.c
+ * mq - src/messagelist.h
  * Copyright (C) 2011 Mathias Andre <mathias@acronycal.org>
  *
  * mq is free software: you can redistribute it and/or modify
@@ -17,25 +17,26 @@
  * along with mq.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdlib.h>
+#ifndef MESSAGELIST_H
+#define MESSAGELIST_H
 
+#include "list.h"
 #include "message.h"
 
-/* 
- * Create and initialise a message
- * args:   message type, message string
- * return: Message object or NULL on error
+/* MessageList is a wrapper around List which provides new methods */
+typedef List MessageList;
+
+/* Wrappers to List's methods */
+MessageList * messagelist_new (void);
+int messagelist_append (MessageList * self, Message * message);
+/*
+ * Process * messagelist_get_cs (MessageList * self, int index);
  */
-Message * message_new (MessageType type, char * content, int sock)
-{
-	Message * message = malloc (sizeof (Message));
 
-	if (message == NULL)
-		return NULL;
+/* New methods */
+/*
+ * int pslist_get_nps (MessageList * self, PsState state, int * list);
+ * Process * pslist_get_ps_by_pid (PsList * self, pid_t pid);
+ */
 
-	message->_type = type;
-	message->_content = content;
-	message->_sock = sock;
-
-	return message;
-}
+#endif /* MESSAGELIST_H */

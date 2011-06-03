@@ -25,14 +25,7 @@
 
 #include "logger.h"
 #include "pslist.h"
-
-/* Type of messages sent to client */
-typedef enum {
-	OK,		/* exit successfully */
-	KO,		/* exit unsuccessfully */
-	OUT,	/* print message to stdout */
-	ERR		/* print message to stderr */
-} MessageType;
+#include "messagelist.h"
 
 typedef struct _Daemon Daemon;
 
@@ -44,12 +37,13 @@ struct _Daemon
 	char * _pid_path;
 	Logger * _log;
 	char * _log_path;
-	int _epfd;						/* epoll fd */
-	PsList * _pslist;				/* Process list, these should only be accessed while
-									   signals are blocked with _daemon_block_signals */
-	long _ncpus;					/* Number of available CPUs */
-	sigset_t _blk_chld;				/* Block SIGCHLD */
-	sigset_t _blk_term;				/* Block SIGTERM */
+	int _epfd;				/* epoll fd */
+	PsList * _pslist;		/* Process list, these should only be accessed while
+							   signals are blocked with _daemon_block_signals */
+	MessageList * _mlist;	/* List of messages to be sent to sockets */
+	long _ncpus;			/* Number of available CPUs */
+	sigset_t _blk_chld;		/* Block SIGCHLD */
+	sigset_t _blk_term;		/* Block SIGTERM */
 };
 
 Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path);
