@@ -44,60 +44,30 @@ int messagelist_append (MessageList * self, Message * message)
 
 /* 
  * Wrapper around list_get_item ()
- * args:   Pslit, index
- * return: Process at index, or NULL on error
+ * args:   MessageList, index
+ * return: Message at index, or NULL on error
  */
-/* Process * pslist_get_ps (PsList * self, int index) */
-/* { */
-	/* return list_get_item (self, index); */
-/* } */
-
-
-/*
- * Get the list of processes in a given state
- * args:   Pslist, state, pointer to a list of indexes
- * return: number of matching processes or -1 on error
- *         the pointer to the list of indexes should be freed after usage 
- */
-/* int pslist_get_nps (PsList * self, PsState state, int * list) */
-/* { */
-	/* int i, len = 0; */
-	/* Process * p = NULL; */
-
-	/* if (self->_len == 0) */
-		/* return 0; */
-
-	/* for (i = 0; i < self->_len; i++) { */
-		/* p = pslist_get_ps (self, i); */
-		/* if ((state == ANY) || (process_get_state (p) == state)) { */
-			/* if (list) */
-				/* list[len] = i; */
-			/* len++; */
-		/* } */
-	/* } */
-
-	/* return len; */
-/* } */
+Message * messagelist_get_message (MessageList * self, int index)
+{
+	return list_get_item (self, index);
+}
 
 /* 
- * Get the process with given PID
- * args:   Pslit, PID
- * return: Process with PID, or NULL on error
+ * Get Messages for sock (if any)
+ * args:   MessageList, sock
+ * return: Message with sock, or NULL
  */
-/* Process * pslist_get_ps_by_pid (PsList * self, pid_t pid) */
-/* { */
-	/* int i; */
-	/* Process * p; */
+Message * messagelist_get_message_by_sock (MessageList * self, int sock)
+{
+	int i;
+	Message * m;
 
-	/* if (pid < 1) */
-		/* return NULL; */
+	for (i = 0; i < self->_len; i++) {
+		m = messagelist_get_message (self, i);
+		if (m->sock == sock)
+			return m;
+	}
 
-	/* for (i = 0; i < self->_len; i++) { */
-		/* p = pslist_get_ps (self, i); */
-		/* if (process_get_pid (p) == pid) */
-			/* return p; */
-	/* } */
-
-	/* [> pid not found <] */
-	/* return NULL; */
-/* } */
+	/* sock not found */
+	return NULL;
+}

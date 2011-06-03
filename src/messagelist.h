@@ -29,14 +29,9 @@ typedef List MessageList;
 /* Wrappers to List's methods */
 MessageList * messagelist_new (void);
 int messagelist_append (MessageList * self, Message * message);
-/*
- * Process * messagelist_get_cs (MessageList * self, int index);
- */
+Message * messagelist_get_message (MessageList * self, int index);
 
 /* New methods */
-/*
- * int pslist_get_nps (MessageList * self, PsState state, int * list);
- * Process * pslist_get_ps_by_pid (PsList * self, pid_t pid);
- */
+Message * messagelist_get_message_by_sock (MessageList * self, int sock);
 
 #endif /* MESSAGELIST_H */

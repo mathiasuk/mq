@@ -35,7 +35,7 @@ Message * message_new (MessageType type, char * content, int sock)
 
 	message->_type = type;
 	message->_content = content;
-	message->_sock = sock;
+	message->sock = sock;
 
 	return message;
 }

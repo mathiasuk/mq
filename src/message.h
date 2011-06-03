@@ -38,7 +38,7 @@ struct _Message
 {
 	MessageType _type;
 	char * _content;	/* content of the message */
-	int _sock;			/* socket the message should be written to */
+	int sock;			/* socket the message should be written to */
 };
 
 Message * message_new (MessageType type, char * message, int sock);
