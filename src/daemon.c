@@ -561,9 +561,10 @@ static void _daemon_unblock_signals (Daemon * self)
 static int _daemon_read_socket (Daemon * self, int sock)
 {
 	char buf[LINE_MAX];
-	MessageType mtype;
-	char * message = NULL;
+	MessageType type;
 	int len;
+	char * message_content = NULL;
+	Message * message = NULL;;
 
 	len = recv (sock, buf, LINE_MAX, 0);
 
@@ -577,7 +578,16 @@ static int _daemon_read_socket (Daemon * self, int sock)
 	}
 
 	/* Parse the received line */
-	mtype = _daemon_parse_line (self, buf, len, message);
+	type = _daemon_parse_line (self, buf, len, message_content);
+
+	/* Create new return message */
+	message = message_new (type, message_content, sock);
+	if (message == NULL)
+		logger_log (self->_log, CRITICAL, "_daemon_read_socket:message_new");
+
+	/* Add message to message queue */
+	if (messagelist_append (self->_mlist, message))	
+		logger_log (self->_log, CRITICAL, "_daemon_read_socket:messagelist_append");
 
 	return 0;
 }
