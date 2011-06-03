@@ -149,6 +149,7 @@ void daemon_run (Daemon * self)
 	struct epoll_event * events;
 	int i, n_events, sock;
 	struct epoll_event event;
+	Message * message;
 
 	/* Daemonize */
 	if (_daemon_daemonize (self))
@@ -191,18 +192,56 @@ void daemon_run (Daemon * self)
 				event.events = EPOLLIN;
 				event.data.fd = sock;
 				if (epoll_ctl (self->_epfd, EPOLL_CTL_ADD, sock, &event) == -1)
-					logger_log (self->_log, CRITICAL, "daemon_setup:epoll_ctl (2)");
+					logger_log (self->_log, CRITICAL, "daemon_run:epoll_ctl (2)");
 			} 
 			else 
 			{
 				/* Handle the existing socket */
+
+				/* Write to socket if it's ready */
+				if (events[i].events & EPOLLOUT) 
+				{
+					logger_log (self->_log, INFO, "Ready to write to %d (len: %d)",
+								events[i].data.fd, self->_mlist->_len);
+
+					/* Look for any Message for the current socket */
+					message = messagelist_get_message_by_sock (self->_mlist,
+															   events[i].data.fd);
+					if (message == NULL)
+					{
+						sleep (3600);
+						logger_log (self->_log, CRITICAL,
+									"Can't find message for socket %d, this shouln't happen",
+									events[i].data.fd);
+					}
+
+					/* Send the message */
+					if (message_send (message))
+						logger_log (self->_log, CRITICAL, "daemon_run:message_send");
+
+					/* Remove message from the MessageList */
+					if (messagelist_remove (self->_mlist, message))
+						logger_log (self->_log, CRITICAL,
+									"daemon_run:_daemon_read_socket");
+					/* TODO: free message pointer */
+
+					/* We can now close the socket */
+					/* This should not be necessary according to epoll(7)
+					 * but removing it causes "Bad file descriptor" errors */
+					if (epoll_ctl (self->_epfd, EPOLL_CTL_DEL, 
+						events[i].data.fd, NULL) == -1)
+						logger_log (self->_log, CRITICAL, "daemon_run:epoll_ctl");
+
+					if (close (events[i].data.fd) == -1)
+						logger_log (self->_log, CRITICAL, "daemon_run:close");
+				}
 
 				/* Read from socket if it's ready */
 				if (events[i].events & EPOLLIN) 
 				{
 					if (_daemon_read_socket(self, events[i].data.fd))
 						logger_log (self->_log, CRITICAL,
-									"daemon_setup:_daemon_read_socket");
+									"daemon_run:_daemon_read_socket");
 				}
 
 				/* Close socket if Client closed it */
@@ -216,7 +255,8 @@ void daemon_run (Daemon * self)
 
 					logger_log (self->_log, DEBUG,
 							"Client closed socket (%d)", events[i].data.fd);
-					close (events[i].data.fd);	
+					if (close (events[i].data.fd) == -1)
+						logger_log (self->_log, CRITICAL, "daemon_run:close");
 				}
 			}
 		}
@@ -238,7 +278,8 @@ void daemon_stop (Daemon * self)
 	logger_log (self->_log, INFO, "Shutting daemon down");
 
 	/* Close the socket */
-	close (self->_sock);
+	if (close (self->_sock) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_run:close");
 
 	/* Unlink the socket's path */
     if (unlink (self->_sock_path) == -1)
@@ -562,6 +603,7 @@ static int _daemon_read_socket (Daemon * self, int sock)
 {
 	char buf[LINE_MAX];
 	MessageType type;
+	struct epoll_event event;
 	int len;
 	char * message_content = NULL;
 	Message * message = NULL;;
@@ -588,6 +630,13 @@ static int _daemon_read_socket (Daemon * self, int sock)
 	/* Add message to message queue */
 	if (messagelist_append (self->_mlist, message))	
 		logger_log (self->_log, CRITICAL, "_daemon_read_socket:messagelist_append");
+
+	/* Update the epoll event for _sock to be notified 
+	 * when it's ready to write */
+	event.data.fd = sock;
+	event.events = EPOLLOUT;
+	if (epoll_ctl (self->_epfd, EPOLL_CTL_MOD, sock, &event) == -1)
+		logger_log (self->_log, CRITICAL, "daemon_setup:epoll_ctl");
 
 	return 0;
 }
