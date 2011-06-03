@@ -42,6 +42,16 @@ int messagelist_append (MessageList * self, Message * message)
 	return list_append (self, message);
 }
 
+/*
+ * Wrapper around list_remove ()
+ * args:   List, pointer to item
+ * return: 0 on sucess, 1 if item not found, -1 on error
+ */
+int messagelist_remove (MessageList * self, Message * message)
+{
+	return list_remove (self, message);
+}
+
 /* 
  * Wrapper around list_get_item ()
  * args:   MessageList, index
