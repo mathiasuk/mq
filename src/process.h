@@ -24,6 +24,7 @@
 #include <signal.h>
 
 typedef enum {
+	/* FIXME: is ANY necessary? */
 	ANY,		/* Matches any other state, used to get list of processes */
 	WAITING,	/* Waiting to be started */
 	RUNNING,	/* Currently running */
@@ -40,6 +41,7 @@ struct _Process
 	char ** _argv;	/* Arguments for the process, NULL terminated */
 	PsState _state;
 	pid_t _pid;
+	int uid;		/* Unique process ID */
 	int _ret;		/* Return value */
 };
 

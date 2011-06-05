@@ -33,6 +33,8 @@
  */
 Process * process_new (char ** argv)
 {
+	static id = 0;	/* Initialise the unique ID */
+
 	Process * process = malloc (sizeof (Process));
 	if (!process)
 		return NULL;
@@ -40,7 +42,11 @@ Process * process_new (char ** argv)
 	process->_argv = argv;
 	process->_state = WAITING;
 	process->_pid = 0;
+	process->uid = id;
 	process->_ret = 0;
+
+	/* Increment the id */
+	id++;
 
 	return process;
 }
