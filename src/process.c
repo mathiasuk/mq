@@ -33,7 +33,7 @@
  */
 Process * process_new (char ** argv)
 {
-	static id = 0;	/* Initialise the unique ID */
+	static int id = 0;	/* Initialise the unique ID */
 
 	Process * process = malloc (sizeof (Process));
 	if (!process)
@@ -58,14 +58,38 @@ Process * process_new (char ** argv)
  */
 char * process_str (Process * self)
 {
-	char * ret;
-	/* FIXME: transform _argv to string */
-	/* TODO: only show PID if process is running? */
-	/* if ((ret = malloc (snprintf (NULL, 0, "%-30s, PID: %d", self->_command, */
-								 /* self->_pid))) == NULL) */
-		/* return NULL; */
-	/* sprintf (ret, "%-30s, PID: %d", self->_command, self->_pid); */
-	ret = strdup (self->_argv[0]);
+	char command[STR_MAX_LEN];
+	char * ret, * current;
+	size_t len = 0, total_len = 0;
+	int i;
+
+	/* Initialise position of current argv in 'command' */
+	current = command;
+
+	/* Transform argv into a string of up to STR_MAX_LEN */
+	for (i = 0; self->_argv[i] != NULL && total_len <= STR_MAX_LEN; i++)
+	{
+		/* Get arg length */
+		len = strlen (self->_argv[i]);
+		if (len < 1)
+			continue;
+
+		/* Copy arg in 'command' at current position */
+		strncpy (current, self->_argv[i], len);
+
+		/* Add a separation whitespace */
+		*(current + len) = ' ';
+
+		total_len += len + 1;
+		current += len + 1;
+	}
+
+	command[total_len - 1] = '\0';	/* -1 removes last separation whitespace */	
+
+	ret = malloc (snprintf (NULL, 0, "%3d %s ", self->uid, command));
+	if (ret == NULL)
+		return NULL;
+	sprintf (ret, "%-3d %s", self->uid, command);
 
 	return ret;
 }
@@ -89,7 +113,10 @@ int process_run (Process * self)
 	/* Exec the process */
 	execvp (self->_argv[0], self->_argv);
 
-	return 1;	/* if we reach this something went wrong*/
+	/* FIXME: find a way to report exec errors to the main process */
+
+	/* if we reach this something went wrong*/
+	exit (EXIT_FAILURE);
 }
 
 /* 

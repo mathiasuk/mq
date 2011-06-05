@@ -20,6 +20,8 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
+#define STR_MAX_LEN 50	/* Max string length for displaying process info */
+
 #include <unistd.h>
 #include <signal.h>
 
@@ -31,7 +33,7 @@ typedef enum {
 	EXITED,		/* Exited normally */
 	KILLED,		/* Killed */
 	DUMPED,		/* Terminated abnormally */
-	STOPPED	/* Stopped */
+	STOPPED		/* Stopped */
 } PsState;
 
 typedef struct _Process Process;
