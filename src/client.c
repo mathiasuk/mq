@@ -315,7 +315,7 @@ int _client_daemon_running (Client * self)
 		perror ("_client_daemon_running:fread");
 		exit (EXIT_FAILURE);
 	}
-	buf[len] = '\0';
+	buf[len - 1] = '\0';	/* - 1 removes the '\n' */
 
 	/* Construct /proc path */
 	proc_path = malloc (snprintf (NULL, 0, "/proc/%s", buf) + 1);
