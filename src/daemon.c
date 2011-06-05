@@ -308,6 +308,7 @@ void daemon_run_processes (Daemon * self)
 	int n_waiting = 0;		/* number of Processes waiting */
 	int * l_waiting = NULL;	/* array of Processes waiting */
 	Process * p = NULL;
+	char * s;
 	int i;
 
 	/* Block signals */
@@ -322,9 +323,22 @@ void daemon_run_processes (Daemon * self)
 		return ;
 	}
 
+	/* Get the number of processes waiting */
+	n_waiting = pslist_get_nps (self->_pslist, WAITING, NULL);
+
+
+	/* We only check this as the following malloc(0) would
+	 * fail when running with -lefence */
+	if (n_waiting == 0)
+	{
+		/* No processes are currently waiting */
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
+		return ;
+	}
+
 	/* Get the list of processes waiting */
-	l_waiting  = malloc (pslist_get_nps (self->_pslist, WAITING, NULL) * 
-			             sizeof (int));
+	l_waiting  = malloc (n_waiting * sizeof (int));
 	if (l_waiting == NULL) {
 		logger_log (self->_log, WARNING, "daemon_run_processes:malloc");
 		/* Unblock signals */
@@ -332,19 +346,22 @@ void daemon_run_processes (Daemon * self)
 		return ;
 	}
 
-	n_waiting = pslist_get_nps (self->_pslist, WAITING, l_waiting);
+	pslist_get_nps (self->_pslist, WAITING, l_waiting);
 
+	/* FIXME: string from process_str should be freed */
 	/* Start as many Processes as we have free CPUs */
 	for (i = 0; (i < n_waiting) && (n_running <= self->_ncpus); i++)
 	{
 		p = pslist_get_ps (self->_pslist, l_waiting[i]);
 		if (process_run (p) == 0) {
-			logger_log (self->_log, DEBUG, "Running Process: '%s'",
-					process_str (p));
+			s = process_str (p);
+			logger_log (self->_log, DEBUG, "Running Process (%d): '%s'", p->uid, s);
+			free (s);
 			n_running++;
 		} else {
-			logger_log (self->_log, WARNING, "Failed to run Process: '%s'",
-					process_str (p));
+			s = process_str (p);
+			logger_log (self->_log, WARNING, "Failed to run Process: '%s'", s);
+			free (s);
 		}
 
 	}
@@ -648,6 +665,7 @@ static int _daemon_read_socket (Daemon * self, int sock)
 void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr)
 {
 	extern Daemon * d;
+	logger_log (d->_log, DEBUG, "caught SIGCHLD");
 	daemon_wait_process (d, siginfo);
 	daemon_run_processes (d);
 }
@@ -655,5 +673,6 @@ void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr)
 void sigterm_handler (int signum)
 {
 	extern Daemon * d;
+	logger_log (d->_log, DEBUG, "caught SIGTERM");
 	daemon_stop (d);
 }
