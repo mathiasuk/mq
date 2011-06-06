@@ -23,4 +23,7 @@
 /* Memory management */
 void * malloc0 (size_t size);
 
+/* String management */
+char * msprintf (char * fmt, ...);
+
 #endif /* UTILS_H */

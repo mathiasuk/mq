@@ -18,6 +18,8 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 #include "utils.h"
 
@@ -33,4 +35,38 @@ void * malloc0 (size_t size)
 
 	/* calloc set memory to 0 by default */
 	return calloc (size, 1);
+}
+
+/*
+ * Behaves like sprintf but automatically allocates a buffer
+ * args:   format string, arguments
+ * return: pointer to string on success, NULL on failure
+ */
+char * msprintf (char * fmt, ...)
+{
+	va_list ap, aq;
+	char * str;
+	int len, i;
+
+
+	va_start (ap, fmt);
+	va_copy (aq, ap);
+
+	/* Check how long should the string be */
+	len = vsnprintf (NULL, 0, fmt, aq);
+
+	/* Try to allocate enough memory */
+	str = malloc (len + 1);
+	if (str == NULL)
+		return NULL;
+
+	i = vsnprintf (str, len + 1, fmt, ap);
+
+	va_end (aq);
+	va_end (ap);
+
+	if (i == -1)
+		return NULL;
+
+	return str;
 }
