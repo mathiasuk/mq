@@ -21,6 +21,7 @@
 #include <stdio.h>
 
 #include "list.h"
+#include "utils.h"
 
 /* 
  * Create and initialise the List
@@ -29,12 +30,12 @@
  */
 List * list_new (void)
 {
-	List * list = malloc (sizeof (List));
+	List * list = malloc0 (sizeof (List));
 	if (list == NULL)
 		return NULL;
 
 	/* Initial size is CHUNK_SIZE elements */
-	list->_list = malloc (CHUNK_SIZE * sizeof (List *));
+	list->_list = malloc0 (CHUNK_SIZE * sizeof (List *));
 	if (!list->_list)
 		return NULL;
 

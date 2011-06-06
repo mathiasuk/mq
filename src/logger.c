@@ -26,6 +26,7 @@
 
 
 #include "logger.h"
+#include "utils.h"
 
 /* Private methods */
 static void _logger (Logger * self, const char * prefix, char * fmt, va_list list);
@@ -37,9 +38,9 @@ static void _logger (Logger * self, const char * prefix, char * fmt, va_list lis
  */
 Logger * logger_new (const char * path)
 {
-	Logger * logger = malloc (sizeof (Logger));
+	Logger * logger = malloc0 (sizeof (Logger));
 	if (!logger) {
-		perror ("logger_new:malloc");
+		perror ("logger_new:malloc0");
 		exit (EXIT_FAILURE);
 	}
 
@@ -116,10 +117,10 @@ void logger_log (Logger * self, LogLevel level, char * fmt, ...)
 			/* If errno is set we include the string describing the error */
 			if (errno != 0) {
 				s_err = strerror(errno);
-				level_str = malloc (snprintf (NULL, 0, "%s: (%s), ", "CRITICAL",
+				level_str = malloc0 (snprintf (NULL, 0, "%s: (%s), ", "CRITICAL",
 											s_err) + 1);
 				if (!level_str) {
-					perror ("logger_log:malloc");
+					perror ("logger_log:malloc0");
 					exit (EXIT_FAILURE);
 				}
 				sprintf (level_str, "%s: (%s), ", "CRITICAL", s_err);
@@ -167,9 +168,9 @@ static void _logger (Logger * self, const char * prefix, char * fmt, va_list lis
 	}
 
 	/* Prepend timestamp (and prefix if necessary) to fmt */
-	fmt_full = malloc (snprintf (NULL, 0, "%s%s%s\n", time_str, prefix, fmt) + 1);
+	fmt_full = malloc0 (snprintf (NULL, 0, "%s%s%s\n", time_str, prefix, fmt) + 1);
 	if (!fmt_full) {
-		perror ("_logger:malloc");
+		perror ("_logger:malloc0");
 		exit (EXIT_FAILURE);
 	}
 	if (sprintf (fmt_full, "%s%s%s\n", time_str, prefix, fmt) < 0) {

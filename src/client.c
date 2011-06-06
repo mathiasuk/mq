@@ -26,6 +26,7 @@
 
 #include "client.h"
 #include "daemon.h"
+#include "utils.h"
 
 /* Private methods */
 char * _client_get_next_arg (Client * self);
@@ -41,13 +42,13 @@ int _client_recv_message (Client * self);
  */
 Client * client_new (void)
 {
-	Client * client = malloc (sizeof (Client));
+	Client * client = malloc0 (sizeof (Client));
 	char * home;
 
 	/* Build the default pidfile's path */
 	if ((home = getenv ("HOME")) == NULL)
 		return NULL;
-	client->_pid_path = malloc (snprintf (NULL, 0, "%s/%s", home, 
+	client->_pid_path = malloc0 (snprintf (NULL, 0, "%s/%s", home, 
 										  PID_FILENAME) + 1);
 	if (client->_pid_path == NULL)
 		return NULL;
@@ -56,7 +57,7 @@ Client * client_new (void)
 	/* Build the default socket's path */
 	if ((home = getenv ("HOME")) == NULL)
 		return NULL;
-	client->_sock_path = malloc (snprintf (NULL, 0, "%s/%s", home, 
+	client->_sock_path = malloc0 (snprintf (NULL, 0, "%s/%s", home, 
 										   SOCK_FILENAME) + 1);
 	if (client->_sock_path == NULL)
 		return NULL;
@@ -65,7 +66,7 @@ Client * client_new (void)
 	/* Build the default logfile's path */
 	if ((home = getenv ("HOME")) == NULL)
 		return NULL;
-	client->_log_path = malloc (snprintf (NULL, 0, "%s/%s", home, 
+	client->_log_path = malloc0 (snprintf (NULL, 0, "%s/%s", home, 
 										  LOG_FILENAME) + 1);
 	if (client->_log_path == NULL)
 		return NULL;
@@ -318,9 +319,9 @@ int _client_daemon_running (Client * self)
 	buf[len - 1] = '\0';	/* - 1 removes the '\n' */
 
 	/* Construct /proc path */
-	proc_path = malloc (snprintf (NULL, 0, "/proc/%s", buf) + 1);
+	proc_path = malloc0 (snprintf (NULL, 0, "/proc/%s", buf) + 1);
 	if (proc_path == NULL) {
-		perror ("_client_daemon_running:malloc");
+		perror ("_client_daemon_running:malloc0");
 		exit (EXIT_FAILURE);
 	}
 	sprintf (proc_path, "/proc/%s", buf);

@@ -21,6 +21,7 @@
 #include <stdio.h>
 
 #include "messagelist.h"
+#include "utils.h"
 
 /* 
  * Wrapper around list_new ()

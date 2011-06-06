@@ -31,6 +31,7 @@
 #include "daemon.h"
 #include "logger.h"
 #include "process.h"
+#include "utils.h"
 
 #define MAX_EVENTS	64
 #define TIMEOUT		1000
@@ -56,7 +57,7 @@ void sigterm_handler (int signum);
  */
 Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path)
 {
-	Daemon * daemon = malloc (sizeof (Daemon));
+	Daemon * daemon = malloc0 (sizeof (Daemon));
 	struct epoll_event event;
 	int len;
 
@@ -155,9 +156,9 @@ void daemon_run (Daemon * self)
 	if (_daemon_daemonize (self))
 		return ;	/* In Client */
 	 
-	events = malloc (sizeof (struct epoll_event) * MAX_EVENTS);
+	events = malloc0 (sizeof (struct epoll_event) * MAX_EVENTS);
 	if (!events)
-		logger_log (self->_log, CRITICAL, "daemon_run:malloc");
+		logger_log (self->_log, CRITICAL, "daemon_run:malloc0");
 
 	/* Main loop */
 	for (;;) {
@@ -328,7 +329,8 @@ void daemon_run_processes (Daemon * self)
 
 
 	/* We only check this as the following malloc(0) would
-	 * fail when running with -lefence */
+	 * fail when running with -lefence, FIXME: this is not the case with
+	 * malloc0 */
 	if (n_waiting == 0)
 	{
 		/* No processes are currently waiting */
@@ -338,9 +340,9 @@ void daemon_run_processes (Daemon * self)
 	}
 
 	/* Get the list of processes waiting */
-	l_waiting  = malloc (n_waiting * sizeof (int));
+	l_waiting  = malloc0 (n_waiting * sizeof (int));
 	if (l_waiting == NULL) {
-		logger_log (self->_log, WARNING, "daemon_run_processes:malloc");
+		logger_log (self->_log, WARNING, "daemon_run_processes:malloc0");
 		/* Unblock signals */
 		_daemon_unblock_signals (self);
 		return ;
@@ -524,9 +526,9 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 
 	/* Convert the line to an array of char *, we add one slot to
 	 * NULL terminate the array */
-	argv = malloc (sizeof (char *) * (argc + 1));
+	argv = malloc0 (sizeof (char *) * (argc + 1));
 	if (!argv)
-		logger_log (self->_log, CRITICAL, "_daemon_parse_line:malloc");
+		logger_log (self->_log, CRITICAL, "_daemon_parse_line:malloc0");
 	for (i = 0; i < argc; i++) {
 		argv[i] = line;
 		/* Move the the next argument in line */

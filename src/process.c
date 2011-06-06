@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
+#include "utils.h"
 
 #include "process.h"
 
@@ -35,7 +36,7 @@ Process * process_new (char ** argv)
 {
 	static int id = 0;	/* Initialise the unique ID */
 
-	Process * process = malloc (sizeof (Process));
+	Process * process = malloc0 (sizeof (Process));
 	if (!process)
 		return NULL;
 
@@ -86,7 +87,7 @@ char * process_str (Process * self)
 
 	command[total_len - 1] = '\0';	/* -1 removes last separation whitespace */	
 
-	ret = malloc (snprintf (NULL, 0, "%3d %s ", self->uid, command));
+	ret = malloc0 (snprintf (NULL, 0, "%3d %s ", self->uid, command));
 	if (ret == NULL)
 		return NULL;
 	sprintf (ret, "%-3d %s", self->uid, command);

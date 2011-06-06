@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include "message.h"
+#include "utils.h"
 
 /* Private methods */
 char * _message_get_next_line (Message * self);
@@ -33,7 +34,7 @@ char * _message_get_next_line (Message * self);
  */
 Message * message_new (MessageType type, char * content, int sock)
 {
-	Message * message = malloc (sizeof (Message));
+	Message * message = malloc0 (sizeof (Message));
 
 	if (message == NULL)
 		return NULL;
@@ -121,7 +122,7 @@ char * _message_get_next_line (Message * self)
 		return NULL;
 	}
 
-	line = malloc (sizeof (char *) * (len + 2));
+	line = malloc0 (sizeof (char *) * (len + 2));
 	if (line == NULL)
 		return NULL;	/* FIXME: the error should be reported somehow */
 		

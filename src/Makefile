@@ -1,5 +1,6 @@
 CC=gcc -Werror -Wall -Wextra -Wno-unused-parameter -pedantic -g
-SOURCES = client.c daemon.c logger.c process.c list.c pslist.c message.c messagelist.c
+SOURCES = client.c daemon.c logger.c process.c list.c pslist.c message.c \
+		  messagelist.c utils.c
 OBJS    = ${SOURCES:.c=.o}
 
 mq: main.c ${OBJS}
