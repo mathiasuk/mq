@@ -48,29 +48,19 @@ Client * client_new (void)
 	/* Build the default pidfile's path */
 	if ((home = getenv ("HOME")) == NULL)
 		return NULL;
-	client->_pid_path = malloc0 (snprintf (NULL, 0, "%s/%s", home, 
-										  PID_FILENAME) + 1);
+	client->_pid_path = msprintf ("%s/%s", home, PID_FILENAME);
 	if (client->_pid_path == NULL)
 		return NULL;
-	sprintf (client->_pid_path, "%s/%s", home, PID_FILENAME);
 
 	/* Build the default socket's path */
-	if ((home = getenv ("HOME")) == NULL)
-		return NULL;
-	client->_sock_path = malloc0 (snprintf (NULL, 0, "%s/%s", home, 
-										   SOCK_FILENAME) + 1);
+	client->_sock_path = msprintf ("%s/%s", home, SOCK_FILENAME);
 	if (client->_sock_path == NULL)
 		return NULL;
-	sprintf (client->_sock_path, "%s/%s", home, SOCK_FILENAME);
 
 	/* Build the default logfile's path */
-	if ((home = getenv ("HOME")) == NULL)
-		return NULL;
-	client->_log_path = malloc0 (snprintf (NULL, 0, "%s/%s", home, 
-										  LOG_FILENAME) + 1);
+	client->_log_path = msprintf ("%s/%s", home, LOG_FILENAME);
 	if (client->_log_path == NULL)
 		return NULL;
-	sprintf (client->_log_path, "%s/%s", home, LOG_FILENAME);
 
 	client->_argc = 0;
 	client->_argv = NULL;
@@ -319,12 +309,11 @@ int _client_daemon_running (Client * self)
 	buf[len - 1] = '\0';	/* - 1 removes the '\n' */
 
 	/* Construct /proc path */
-	proc_path = malloc0 (snprintf (NULL, 0, "/proc/%s", buf) + 1);
+	proc_path = msprintf ("/proc/%s", buf);
 	if (proc_path == NULL) {
-		perror ("_client_daemon_running:malloc0");
+		perror ("_client_daemon_running:msprintf");
 		exit (EXIT_FAILURE);
 	}
-	sprintf (proc_path, "/proc/%s", buf);
 
 	/* Check if PID is running (ie: /proc/PID exists) */
 	if (stat (proc_path, &s) == -1) {
