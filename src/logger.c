@@ -142,6 +142,8 @@ void logger_log (Logger * self, LogLevel level, char * fmt, ...)
 
 	_logger (self, level_str, fmt, list);
 
+	va_end (list);
+
 	if (level == CRITICAL)
 		exit (EXIT_FAILURE);
 }
