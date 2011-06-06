@@ -117,13 +117,11 @@ void logger_log (Logger * self, LogLevel level, char * fmt, ...)
 			/* If errno is set we include the string describing the error */
 			if (errno != 0) {
 				s_err = strerror(errno);
-				level_str = malloc0 (snprintf (NULL, 0, "%s: (%s), ", "CRITICAL",
-											s_err) + 1);
+				level_str = msprintf ("%s: (%s), ", "CRITICAL", s_err);
 				if (!level_str) {
-					perror ("logger_log:malloc0");
+					perror ("logger_log:msprintf");
 					exit (EXIT_FAILURE);
 				}
-				sprintf (level_str, "%s: (%s), ", "CRITICAL", s_err);
 			} else
 				level_str = "CRITICAL: ";
 			break;
@@ -170,13 +168,9 @@ static void _logger (Logger * self, const char * prefix, char * fmt, va_list lis
 	}
 
 	/* Prepend timestamp (and prefix if necessary) to fmt */
-	fmt_full = malloc0 (snprintf (NULL, 0, "%s%s%s\n", time_str, prefix, fmt) + 1);
+	fmt_full = msprintf ("%s%s%s\n", time_str, prefix, fmt);
 	if (!fmt_full) {
-		perror ("_logger:malloc0");
-		exit (EXIT_FAILURE);
-	}
-	if (sprintf (fmt_full, "%s%s%s\n", time_str, prefix, fmt) < 0) {
-		perror ("_logger:sprintf");
+		perror ("_logger:msprintf");
 		exit (EXIT_FAILURE);
 	}
 
