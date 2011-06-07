@@ -530,7 +530,7 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 	if (!argv)
 		logger_log (self->_log, CRITICAL, "_daemon_parse_line:malloc0");
 	for (i = 0; i < argc; i++) {
-		argv[i] = line;
+		argv[i] = strdup (line);
 		/* Move the the next argument in line */
 		line += strlen(line) + 1;
 	}
