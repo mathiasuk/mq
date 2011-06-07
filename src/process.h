@@ -20,7 +20,7 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
-#define STR_MAX_LEN 50	/* Max string length for displaying process info */
+#define STR_MAX_LEN 80	/* Max string length for displaying process info */
 
 #include <unistd.h>
 #include <signal.h>
