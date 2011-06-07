@@ -87,7 +87,7 @@ char * process_str (Process * self)
 
 	command[total_len - 1] = '\0';	/* -1 removes last separation whitespace */	
 
-	ret = msprintf ("%3d %s ", self->uid, command);
+	ret = msprintf ("%-3d %s ", self->uid, command);
 	if (ret == NULL)
 		return NULL;
 
