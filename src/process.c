@@ -59,11 +59,12 @@ Process * process_new (char ** argv)
  */
 char * process_str (Process * self)
 {
-	char command[STR_MAX_LEN - STR_MAX_UID_LEN - STR_MAX_STATE_LEN];
+	char command[STR_MAX_LEN - STR_MAX_UID_LEN -
+				 STR_MAX_STATE_LEN - STR_MAX_EXIT_LEN];
 	char * ret, * current, * state;
 	size_t len = 0, total_len = 0;
 	int i;
-	short int cut = 0;				/* Were the args cut to fit in command string? */
+	short int cut = 0;			/* Were the args cut to fit in command string? */
 
 	/* Initialise position of current argv in 'command' */
 	current = command;
@@ -77,9 +78,11 @@ char * process_str (Process * self)
 			continue;
 
 		/* Check how much space left we have */
-		if (total_len + len + 1 > STR_MAX_LEN - STR_MAX_UID_LEN - STR_MAX_STATE_LEN) {
-			len = STR_MAX_LEN - STR_MAX_UID_LEN - STR_MAX_STATE_LEN - total_len;
-
+		if (total_len + len + 1 > STR_MAX_LEN - STR_MAX_UID_LEN -
+			STR_MAX_STATE_LEN - STR_MAX_EXIT_LEN)
+		{
+			len = STR_MAX_LEN - STR_MAX_UID_LEN -
+				  STR_MAX_STATE_LEN - STR_MAX_EXIT_LEN - total_len;
 			cut = 1;
 		}
 
@@ -104,8 +107,13 @@ char * process_str (Process * self)
 	/* Get Process state's string */
 	state = process_get_state_str (self);
 
-	ret = msprintf ("%-4d %s    %s ", self->uid, 
-					state, command);	/* "4d": STR_MAX_UID_LEN - 1 */
+	/* If the process exited we print the exit code */
+	if (self->_state == EXITED || self->_state == KILLED)
+		ret = msprintf ("%-4d %s   %-4d %s ", self->uid, state,
+						self->_ret, command);	/* "4d": STR_MAX_UID_LEN - 1 */
+	else
+		ret = msprintf ("%-4d %s        %s ", self->uid,
+						state, command);	/* "4d": STR_MAX_UID_LEN - 1 */
 
 	return ret;
 }
@@ -151,6 +159,7 @@ int process_wait (Process * self, siginfo_t * siginfo)
 			break;
 		case CLD_KILLED:
 			self->_state = KILLED;
+			self->_ret = siginfo->si_status;
 			break;
 		case CLD_DUMPED:
 			self->_state = DUMPED;

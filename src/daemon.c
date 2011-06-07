@@ -694,7 +694,7 @@ static MessageType _daemon_action_list (Daemon * self, char ** message)
 	current = *message;
 
 	/* Add header */
-	header = "UID  STAT CMD";
+	header = "UID STAT EXIT CMD";
 	if (snprintf (current, STR_MAX_LEN, "%s\n", header) == -1)
 		logger_log (self->_log, CRITICAL, "_daemon_action_list:snprintf");
 	/* Increment the current pointer */
