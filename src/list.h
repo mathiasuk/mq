@@ -32,6 +32,7 @@ struct _List
 };
 
 List * list_new (void);
+int list_len (List * self);
 int list_append (List * self, void * item);
 int list_remove (List * self, void * item);
 void * list_get_item (List * self, int index);

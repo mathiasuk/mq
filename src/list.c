@@ -44,6 +44,16 @@ List * list_new (void)
 	return list;
 }
 
+/*
+ * Returns lenght of list
+ * args:   List
+ * return: number of items in List
+ */
+int list_len (List * self)
+{
+	return self->_len;
+}
+
 /* 
  * Add an item to the List
  * args:   List, item
