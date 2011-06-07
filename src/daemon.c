@@ -45,6 +45,7 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 static void _daemon_block_signals (Daemon * self);
 static void _daemon_unblock_signals (Daemon * self);
 static int _daemon_read_socket (Daemon * self, int sock);
+static MessageType _daemon_action_list (Daemon * self, char ** message);
 
 /* Signal handler */
 void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr);
@@ -157,7 +158,7 @@ void daemon_run (Daemon * self)
 		return ;	/* In Client */
 	 
 	events = malloc0 (sizeof (struct epoll_event) * MAX_EVENTS);
-	if (!events)
+	if (events == NULL)
 		logger_log (self->_log, CRITICAL, "daemon_run:malloc0");
 
 	/* Main loop */
@@ -573,6 +574,8 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 			logger_log (self->_log, WARNING, "Expected: 'add COMMAND'");
 			*message = "Missing command for add\n";
 		}
+	} else if (strcmp (action, "list") == 0 || strcmp (action, "ls") == 0) {
+		return _daemon_action_list (self, message);
 	} else if (strcmp (action, "exit") == 0) {
 		daemon_stop (self);
 		/* FIXME: OK is never returned as daemon is stopped ... */
@@ -610,9 +613,9 @@ static void _daemon_block_signals (Daemon * self)
 static void _daemon_unblock_signals (Daemon * self)
 {
 	if (sigprocmask (SIG_UNBLOCK, &self->_blk_chld, NULL) == -1)
-		logger_log (self->_log, CRITICAL, "_daemon_block_signals:sigprocmask");
+		logger_log (self->_log, CRITICAL, "_daemon_unblock_signals:sigprocmask");
 	if (sigprocmask (SIG_UNBLOCK, &self->_blk_term, NULL) == -1)
-		logger_log (self->_log, CRITICAL, "_daemon_block_signals:sigprocmask");
+		logger_log (self->_log, CRITICAL, "_daemon_unblock_signals:sigprocmask");
 }
 
 /* 
@@ -660,6 +663,57 @@ static int _daemon_read_socket (Daemon * self, int sock)
 		logger_log (self->_log, CRITICAL, "daemon_setup:epoll_ctl");
 
 	return 0;
+}
+
+/* 
+ * Build list of all processes as string
+ * args:   Daemon, pointer to string
+ * return: MessageType
+ */
+static MessageType _daemon_action_list (Daemon * self, char ** message)
+{
+	Process * p = NULL;
+	char * current, * s;
+	int len, i;
+	size_t slen;
+
+	/* Get the number of Processes in the list */
+	len = list_len (self->_pslist);
+
+	/* Allocate a string long enough to fit the process 
+	 * string for all processes */
+	*message = malloc0 ((STR_MAX_LEN + 1) * len);	/* + 1 to fit '\n' */
+	if (*message == NULL)
+		logger_log (self->_log, CRITICAL, "_daemon_action_list:malloc0");
+
+	/* Initialise the current position in the string */
+	current = *message;
+
+	for (i = 0; i < len; i++)
+	{
+		/* Get the process i */
+		p = pslist_get_ps (self->_pslist, i);
+		if (p == NULL)
+			logger_log (self->_log, CRITICAL, "_daemon_action_list:pslist_get_ps");
+
+		/* Get the string representation of the process */
+		s = process_str (p);
+		if (s == NULL)
+			logger_log (self->_log, CRITICAL, "_daemon_action_list:process_str");
+
+		slen = strlen (s);
+
+		/* Copy the process string in the return string */
+		if (snprintf (current, slen + 1, "%s\n", s) == -1)
+			logger_log (self->_log, CRITICAL, "_daemon_action_list:snprintf");
+
+		free (s);
+
+		/* Increment the current pointer */
+		current += len + 1;
+	}
+
+	return OK;
 }
 
 
