@@ -704,13 +704,13 @@ static MessageType _daemon_action_list (Daemon * self, char ** message)
 		slen = strlen (s);
 
 		/* Copy the process string in the return string */
-		if (snprintf (current, slen + 1, "%s\n", s) == -1)
+		if (snprintf (current, slen + 2, "%s\n", s) == -1)
 			logger_log (self->_log, CRITICAL, "_daemon_action_list:snprintf");
 
 		free (s);
 
 		/* Increment the current pointer */
-		current += len + 1;
+		current += slen + 1;
 	}
 
 	return OK;
