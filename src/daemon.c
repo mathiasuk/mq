@@ -680,6 +680,9 @@ static MessageType _daemon_action_list (Daemon * self, char ** message)
 	/* Get the number of Processes in the list */
 	len = list_len (self->_pslist);
 
+	if (len == 0)
+		return OK;
+
 	/* Allocate a string long enough to fit the process 
 	 * string for all processes */
 	*message = malloc0 ((STR_MAX_LEN + 1) * len);	/* + 1 to fit '\n' */

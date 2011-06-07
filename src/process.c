@@ -59,21 +59,29 @@ Process * process_new (char ** argv)
  */
 char * process_str (Process * self)
 {
-	char command[STR_MAX_LEN];
+	char command[STR_MAX_LEN - STR_MAX_UID_LEN];
 	char * ret, * current;
 	size_t len = 0, total_len = 0;
 	int i;
+	short int cut = 0;				/* Were the args cut to fit in command string? */
 
 	/* Initialise position of current argv in 'command' */
 	current = command;
 
-	/* Transform argv into a string of up to STR_MAX_LEN */
-	for (i = 0; self->_argv[i] != NULL && total_len <= STR_MAX_LEN; i++)
+	/* Transform argv into a string of up to STR_MAX_LEN - STR_MAX_UID_LEN */
+	for (i = 0; self->_argv[i] != NULL; i++)
 	{
 		/* Get arg length */
 		len = strlen (self->_argv[i]);
 		if (len < 1)
 			continue;
+
+		/* Check how much space left we have */
+		if (total_len + len + 1 > STR_MAX_LEN - STR_MAX_UID_LEN) {
+			len = STR_MAX_LEN - STR_MAX_UID_LEN - total_len;
+
+			cut = 1;
+		}
 
 		/* Copy arg in 'command' at current position */
 		strncpy (current, self->_argv[i], len);
@@ -83,13 +91,17 @@ char * process_str (Process * self)
 
 		total_len += len + 1;
 		current += len + 1;
+
+		if (cut)
+			break;
 	}
 
-	command[total_len - 1] = '\0';	/* -1 removes last separation whitespace */	
+	if (cut)
+		strncpy (command + (total_len - 7), " (...)\0", 7);
+	else
+		command[total_len - 1] = '\0';	/* -1 removes last separation whitespace */	
 
-	ret = msprintf ("%-3d %s ", self->uid, command);
-	if (ret == NULL)
-		return NULL;
+	ret = msprintf ("%-3d %s ", self->uid, command);	/* 3d: STR_MAX_UID_LEN - 1 */
 
 	return ret;
 }
