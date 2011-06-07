@@ -22,6 +22,7 @@
 
 #define STR_MAX_LEN 80		/* Max string length for displaying process info */
 #define STR_MAX_UID_LEN 4	/* Max string length for uid + whitespace*/
+#define STR_MAX_STATE_LEN 4	/* Max string length for state + whitespace*/
 
 #include <unistd.h>
 #include <signal.h>
@@ -55,5 +56,6 @@ int process_wait (Process * self, siginfo_t * siginfo);
 
 PsState process_get_state (Process * self);
 pid_t process_get_pid (Process * self);
+char * process_get_state_str (Process * self);
 
 #endif /* PROCESS_H */

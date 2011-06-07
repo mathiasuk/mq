@@ -59,8 +59,8 @@ Process * process_new (char ** argv)
  */
 char * process_str (Process * self)
 {
-	char command[STR_MAX_LEN - STR_MAX_UID_LEN];
-	char * ret, * current;
+	char command[STR_MAX_LEN - STR_MAX_UID_LEN - STR_MAX_STATE_LEN];
+	char * ret, * current, * state;
 	size_t len = 0, total_len = 0;
 	int i;
 	short int cut = 0;				/* Were the args cut to fit in command string? */
@@ -77,8 +77,8 @@ char * process_str (Process * self)
 			continue;
 
 		/* Check how much space left we have */
-		if (total_len + len + 1 > STR_MAX_LEN - STR_MAX_UID_LEN) {
-			len = STR_MAX_LEN - STR_MAX_UID_LEN - total_len;
+		if (total_len + len + 1 > STR_MAX_LEN - STR_MAX_UID_LEN - STR_MAX_STATE_LEN) {
+			len = STR_MAX_LEN - STR_MAX_UID_LEN - STR_MAX_STATE_LEN - total_len;
 
 			cut = 1;
 		}
@@ -101,7 +101,11 @@ char * process_str (Process * self)
 	else
 		command[total_len - 1] = '\0';	/* -1 removes last separation whitespace */	
 
-	ret = msprintf ("%-3d %s ", self->uid, command);	/* 3d: STR_MAX_UID_LEN - 1 */
+	/* Get Process state's string */
+	state = process_get_state_str (self);
+
+	ret = msprintf ("%-3d (%s) %s ", self->uid, 
+					state, command);	/* "3d": STR_MAX_UID_LEN - 1 */
 
 	return ret;
 }
@@ -189,4 +193,31 @@ pid_t process_get_pid (Process * self)
 	if (self == NULL)
 		return -1;
 	return self->_pid;
+}
+
+/* 
+ * Return the process's state string
+ * args:   Process
+ * return: state's string
+ */
+char * process_get_state_str (Process * self)
+{
+	/* Get string for the Process' state */
+	switch (self->_state)
+	{
+		case WAITING:
+			return "W";
+		case RUNNING:
+			return "R";
+		case EXITED:
+			return "C";		/* COMPLETE */
+		case KILLED:
+			return "K";
+		case DUMPED:
+			return "D";
+		case STOPPED:
+			return "S";
+		default:
+			return "?";
+	}
 }
