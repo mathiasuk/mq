@@ -1,5 +1,5 @@
 - Write errors to stderr in Client
 - Check that the client doesn't send more than LINE_MAX characters
-- strdup char * message in message_new () and add message_del ()
+- add message_del () and free Message->_content
 - Add a shell mode to client
 - Added process_del, should free each pointer in argv 

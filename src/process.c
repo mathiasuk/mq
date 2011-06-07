@@ -104,8 +104,8 @@ char * process_str (Process * self)
 	/* Get Process state's string */
 	state = process_get_state_str (self);
 
-	ret = msprintf ("%-3d (%s) %s ", self->uid, 
-					state, command);	/* "3d": STR_MAX_UID_LEN - 1 */
+	ret = msprintf ("%-4d %s    %s ", self->uid, 
+					state, command);	/* "4d": STR_MAX_UID_LEN - 1 */
 
 	return ret;
 }

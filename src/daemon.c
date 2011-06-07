@@ -572,7 +572,7 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 			return OK;
 		} else {
 			logger_log (self->_log, WARNING, "Expected: 'add COMMAND'");
-			*message = "Missing command for add\n";
+			*message = strdup ("Missing command for add\n");
 		}
 	} else if (strcmp (action, "list") == 0 || strcmp (action, "ls") == 0) {
 		return _daemon_action_list (self, message);
@@ -673,7 +673,7 @@ static int _daemon_read_socket (Daemon * self, int sock)
 static MessageType _daemon_action_list (Daemon * self, char ** message)
 {
 	Process * p = NULL;
-	char * current, * s;
+	char * current, * header, * s;
 	int len, i;
 	size_t slen;
 
@@ -685,12 +685,20 @@ static MessageType _daemon_action_list (Daemon * self, char ** message)
 
 	/* Allocate a string long enough to fit the process 
 	 * string for all processes */
-	*message = malloc0 ((STR_MAX_LEN + 1) * len);	/* + 1 to fit '\n' */
+	*message = malloc0 ((STR_MAX_LEN + 1) * (len + 1));	/* STR_MAX_LEN + 1 to fit '\n'
+													     * len + 1 to fit headers */
 	if (*message == NULL)
 		logger_log (self->_log, CRITICAL, "_daemon_action_list:malloc0");
 
 	/* Initialise the current position in the string */
 	current = *message;
+
+	/* Add header */
+	header = "UID  STAT CMD";
+	if (snprintf (current, STR_MAX_LEN, "%s\n", header) == -1)
+		logger_log (self->_log, CRITICAL, "_daemon_action_list:snprintf");
+	/* Increment the current pointer */
+	current += strlen (header) + 1;		/* + 1 for '\n' */
 
 	for (i = 0; i < len; i++)
 	{
