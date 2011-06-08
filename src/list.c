@@ -85,7 +85,6 @@ int list_append (List * self, void * item)
 int list_remove (List * self, void * item)
 {
 	int i, j;
-	/* TODO: reduce size by CHUNK_SIZE If necessary */
 
 	/* Look for the item in list */
 	for (i = 0; i < self->_len && self->_list[i] != item; i++)
@@ -98,6 +97,17 @@ int list_remove (List * self, void * item)
 	/* Left shift all items after our item, effectively removing it */
 	for (j = i; j < self->_len - 2; j ++)
 		self->_list[j] = self->_list[j + 1];
+
+	/* If we have more than CHUNK_SIZE free elements we compress the list*/
+	if (self->_len % CHUNK_SIZE == 0) {
+		void ** tmp_list;
+		tmp_list = realloc (self->_list, (self->_len) * sizeof (List *));
+		if (tmp_list == NULL)
+			return 1;
+		else
+			self->_list = tmp_list;
+
+	}
 
 	/* Decrease the lengh of the list */
 	self->_len--;
