@@ -224,7 +224,8 @@ void daemon_run (Daemon * self)
 					if (messagelist_remove (self->_mlist, message))
 						logger_log (self->_log, CRITICAL,
 									"daemon_run:_daemon_read_socket");
-					/* TODO: free message pointer */
+
+					message_del (message);
 
 					/* We can now close the socket */
 					/* This should not be necessary according to epoll(7)

@@ -47,6 +47,17 @@ Message * message_new (MessageType type, char * content, int sock)
 }
 
 /*
+ * Delete and free a Message
+ * args:   Message
+ * return: void
+ */
+void message_del (Message * self)
+{
+	free (self->_content);
+	free (self);
+}
+
+/*
  * Send the current message on the socket
  * args:   Message
  * return: 0 on success, 1 on eror
