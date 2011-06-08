@@ -36,5 +36,6 @@ int list_len (List * self);
 int list_append (List * self, void * item);
 int list_remove (List * self, void * item);
 void * list_get_item (List * self, int index);
+int list_move_items (List * self, int origin, int count, int dest);
 
 #endif /* LIST_H */

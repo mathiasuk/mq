@@ -128,3 +128,55 @@ void * list_get_item (List * self, int index)
 
 	return self->_list[index];
 }
+
+/*
+ * Move count items from origin to destination
+ * args:   List, start position, number of items to move, 
+ *		   destination position (or -1 to move to end of list)
+ * return: 0 on success, 1 on error
+ */
+int list_move_items (List * self, int start, int count, int dest)
+{
+	int i;
+	void ** p = malloc0 (count * sizeof (void *));
+
+	if (p == NULL)
+		return 1;
+
+	/* Check that the starting position is within the list range */
+	if (start < 0 || start >= self->_len)
+		return 1;
+
+	/* Check that the destination position is within the list range */
+	if (dest < 0 || dest >= self->_len)
+		return 1;
+
+	/* Check that elements from start until start + count are in the range */
+	if (start + count - 1 >= self->_len)
+		return 1;
+
+	if (start == dest)
+		/* Nothing to do */
+		return 0;
+
+	/* Save the values to move */
+	for (i = 0; i < count; i++)
+	{
+		p[i] = self->_list[start + i];
+	}
+
+	for (i = 0; i < dest - start; i++)
+	{
+		self->_list[start + i] = self->_list[start + count + i];
+	}
+	
+	/* Restore the values in their new positions */
+	for (i = count - 1; i >= 0; i--)
+	{
+		self->_list[start + dest - start + i] = p[i];
+	}
+
+	free (p);
+
+	return 0;
+}
