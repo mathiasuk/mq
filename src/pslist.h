@@ -30,6 +30,7 @@ typedef List PsList;
 PsList * pslist_new (void);
 int pslist_append (PsList * self, Process * process);
 Process * pslist_get_ps (PsList * self, int index);
+int pslist_move_items (List * self, int start, int count, int dest);
 
 /* New methods */
 int pslist_get_nps (PsList * self, PsState state, int * list);

@@ -45,12 +45,23 @@ int pslist_append (PsList * self, Process * process)
 
 /* 
  * Wrapper around list_get_item ()
- * args:   Pslit, index
+ * args:   Pslist, index
  * return: Process at index, or NULL on error
  */
 Process * pslist_get_ps (PsList * self, int index)
 {
 	return list_get_item (self, index);
+}
+
+/*
+ * Wrapper around list_move_items ()
+ * args:   PsList, start position, number of items to move, 
+ *		   destination position (or -1 to move to end of list)
+ * return: 0 on success, 1 on error
+ */
+int pslist_move_items (List * self, int start, int count, int dest)
+{
+	return list_get_item (self, start, count, dest);
 }
 
 
