@@ -46,6 +46,7 @@ static void _daemon_block_signals (Daemon * self);
 static void _daemon_unblock_signals (Daemon * self);
 static int _daemon_read_socket (Daemon * self, int sock);
 static MessageType _daemon_action_list (Daemon * self, char ** message);
+static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** message);
 
 /* Signal handler */
 void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr);
@@ -577,6 +578,8 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 		}
 	} else if (strcmp (action, "list") == 0 || strcmp (action, "ls") == 0) {
 		return _daemon_action_list (self, message);
+	} else if (strcmp (action, "move") == 0 || strcmp (action, "mv") == 0) {
+		return _daemon_action_move (self, argv, message);
 	} else if (strcmp (action, "exit") == 0) {
 		daemon_stop (self);
 		/* FIXME: OK is never returned as daemon is stopped ... */
@@ -728,6 +731,32 @@ static MessageType _daemon_action_list (Daemon * self, char ** message)
 	return OK;
 }
 
+/* 
+ * Build list of all processes as string
+ * args:   Daemon, pointer to string
+ * return: MessageType
+ */
+static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** message)
+{
+	char * src = NULL, * dst = NULL;
+
+	/* Check for the required extra arguments */
+	if (*argv != NULL)
+	{
+		src = *argv;
+
+		/* Move to the next argument */
+		argv++;
+		dst = *argv;
+	}
+	if (src == NULL || dst == NULL) {
+		logger_log (self->_log, WARNING, "Expected: 'mv P1[-PN] DEST'");
+		*message = strdup ("Expected: 'mv P1[-PN] DEST'\n");
+		return KO;
+	}
+
+	return OK;
+}
 
 /* Signal handlers */
 void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr)
