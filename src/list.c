@@ -137,11 +137,8 @@ void * list_get_item (List * self, int index)
  */
 int list_move_items (List * self, int start, int count, int dest)
 {
-	int i;
-	void ** p = malloc0 (count * sizeof (void *));
-
-	if (p == NULL)
-		return 1;
+	int i, j;
+	void * p;
 
 	/* Check that the starting position is within the list range */
 	if (start < 0 || start >= self->_len)
@@ -159,24 +156,31 @@ int list_move_items (List * self, int start, int count, int dest)
 		/* Nothing to do */
 		return 0;
 
-	/* Save the values to move */
-	for (i = 0; i < count; i++)
+	if (start < dest)
 	{
-		p[i] = self->_list[start + i];
+		for (i = count - 1; i >= 0; i--)
+		{
+			for (j = start; j < dest; j++)
+			{
+				p = self->_list[j + i + 1];
+				self->_list[j + i + 1] = self->_list[j + i];
+				self->_list[j + i] = p;
+			}
+		}
 	}
 
-	for (i = 0; i < dest - start; i++)
+	if (start > dest)
 	{
-		self->_list[start + i] = self->_list[start + count + i];
+		for (i = 0; i < count; i++)
+		{
+			for (j = start; j > dest; j--)
+			{
+				p = self->_list[j + i - 1];
+				self->_list[j + i - 1] = self->_list[j + i];
+				self->_list[j + i] = p;
+			}
+		}
 	}
-	
-	/* Restore the values in their new positions */
-	for (i = count - 1; i >= 0; i--)
-	{
-		self->_list[start + dest - start + i] = p[i];
-	}
-
-	free (p);
 
 	return 0;
 }
