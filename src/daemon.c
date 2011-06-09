@@ -739,6 +739,7 @@ static MessageType _daemon_action_list (Daemon * self, char ** message)
 static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** message)
 {
 	char * src = NULL, * dst = NULL;
+	int src_i, dst_i;
 
 	/* Check for the required extra arguments */
 	if (*argv != NULL)
@@ -750,10 +751,34 @@ static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** mes
 		dst = *argv;
 	}
 	if (src == NULL || dst == NULL) {
-		logger_log (self->_log, WARNING, "Expected: 'mv P1[-PN] DEST'");
-		*message = strdup ("Expected: 'mv P1[-PN] DEST'\n");
+		logger_log (self->_log, WARNING, "Expected: 'mv UID DEST'");
+		*message = strdup ("Expected: 'mv UID DEST'\n");
 		return KO;
 	}
+
+	/* TODO: check if src contains a range (eg : 2-4) */
+
+	/* Convert the arguments to int */
+	errno = 0;
+	src_i = strtol (src, NULL, 10);
+	if (errno != 0) {
+		*message = strdup ("Expected: 'mv UID DEST'\n");
+		return KO;
+	}
+	dst_i = strtol (dst, NULL, 10);
+	if (errno != 0) {
+		*message = strdup ("Expected: 'mv UID DEST'\n");
+		return KO;
+	}
+
+	/* Get the index of the process based on its uid */
+	src_i = pslist_get_uid_index (self->_pslist, src_i);
+
+	logger_log (self->_log, DEBUG, "Moving processes: %d to %d", src_i, dst_i);
+
+	/* Move the processes */
+	if (pslist_move_items (self->_pslist, src_i, 1, dst_i))
+		logger_log (self->_log, CRITICAL, "_daemon_action_move:pslist_move_items");
 
 	return OK;
 }
