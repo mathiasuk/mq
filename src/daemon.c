@@ -50,6 +50,7 @@ static MessageType _daemon_action_list (Daemon * self, char ** message);
 static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** message);
 static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char ** message);
 static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** message);
+static int _daemon_terminate_all (Daemon * self);
 
 /* Signal handler */
 void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr);
@@ -279,7 +280,9 @@ void daemon_stop (Daemon * self)
 	/* Block signals */
 	_daemon_block_signals (self);
 
-	/* TODO: kill all processes */
+	/* Terminate all running processes */
+	if (_daemon_terminate_all (self))
+		logger_log (self->_log, CRITICAL, "daemon_run:_daemon_terminate_all");
 
 	logger_log (self->_log, INFO, "Shutting daemon down");
 
@@ -901,6 +904,44 @@ static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** mes
 
 	return OK;
 }
+
+/*
+ * Terminate all running processes
+ * args:   Daemon
+ * return: 0 on success, 1 on failure
+ */
+static int _daemon_terminate_all (Daemon * self)
+{
+	int n_running, i;
+	int * l_running = NULL;	/* array of Processes waiting */
+	Process * p;
+
+	/* Get the number of processes running */
+	n_running = pslist_get_nps (self->_pslist, RUNNING, NULL);
+
+	if (n_running < 1)
+		/* Nothing to do */
+		return 0;
+
+	/* Get the list of processes running */
+	l_running  = malloc0 (n_running * sizeof (int));
+	if (l_running == NULL)
+		logger_log (self->_log, CRITICAL, "daemon_terminate_all:malloc0");
+	pslist_get_nps (self->_pslist, RUNNING, l_running);
+
+	for (i = 0; i < n_running; i++)
+	{
+		p = pslist_get_ps (self->_pslist, l_running[i]);
+		if (p == NULL)
+			logger_log (self->_log, CRITICAL, "_daemon_terminate_all:pslist_get_ps");
+		if (process_terminate (p))
+			logger_log (self->_log, CRITICAL, "_daemon_terminate_all:process_terminate");
+		logger_log (self->_log, DEBUG, "Terminated: %d", process_get_pid (p));
+	}
+
+	return 0;
+}
+
 
 /* Signal handlers */
 void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr)
