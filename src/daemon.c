@@ -840,8 +840,17 @@ static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char *
 	/* Get the process with given uid */
 	p = pslist_get_ps_by_uid (self->_pslist, uid);
 
+	if (p == NULL)
+	{
+		*message = msprintf ("Unknown UID '%d'\n", uid);
+		if (*message == NULL)
+			logger_log (self->_log, CRITICAL, "_daemon_action_terminate:msprintf");
+		return KO;
+	}
+
 	if (process_terminate (p))
 		logger_log (self->_log, CRITICAL, "_daemon_action_terminate:process_terminate");
+	logger_log (self->_log, DEBUG, "Terminating process %d", p->_pid);
 
 	return OK;
 }

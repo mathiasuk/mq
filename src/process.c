@@ -125,6 +125,8 @@ char * process_str (Process * self)
  */
 int process_run (Process * self)
 {
+	sigset_t set;
+
 	/* Create new process */
 	self->_pid = fork ();
 	if (self->_pid == -1)
@@ -133,6 +135,17 @@ int process_run (Process * self)
 		self->_state = RUNNING;
 		return 0;	/* success */
 	}
+
+	/* Unblock SIGTERM and SIGHUP (this was set in daemon 
+	 * and is kept after the fork) */
+
+	/* Create a new empty set */
+	if (sigemptyset (&set) == -1)
+		exit (EXIT_FAILURE);
+
+	/* Replace the current mask */
+	if (sigprocmask (SIG_SETMASK, &set, NULL) == -1)
+		exit (EXIT_FAILURE);
 
 	/* Exec the process */
 	execvp (self->_argv[0], self->_argv);
@@ -187,6 +200,14 @@ int process_wait (Process * self, siginfo_t * siginfo)
  */
 int process_terminate (Process * self)
 {
+	/* Terminate only makes sense if the process is currently running */
+	if (self->_state != RUNNING)
+		return 0;
+
+	/* Sent SIGTERM to the process */
+	if (kill (self->_pid, SIGTERM) == -1)
+		return 1;
+
 	return 0;
 }
 
