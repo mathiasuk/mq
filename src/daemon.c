@@ -200,11 +200,27 @@ void daemon_run (Daemon * self)
 				event.events = EPOLLIN;
 				event.data.fd = sock;
 				if (epoll_ctl (self->_epfd, EPOLL_CTL_ADD, sock, &event) == -1)
-					logger_log (self->_log, CRITICAL, "daemon_run:epoll_ctl (2)");
+					logger_log (self->_log, CRITICAL, "daemon_run:epoll_ctl");
 			} 
 			else 
 			{
 				/* Handle the existing socket */
+
+				/* Close socket if Client closed it */
+				if (events[i].events & EPOLLHUP || events[i].events & EPOLLERR)
+				{
+					/* This should not be necessary according to epoll(7)
+					 * but removing it causes "Bad file descriptor" errors */
+					if (epoll_ctl (self->_epfd, EPOLL_CTL_DEL, 
+						events[i].data.fd, NULL) == -1)
+						logger_log (self->_log, CRITICAL, "daemon_run:epoll_ctl (3)");
+
+					logger_log (self->_log, DEBUG,
+							"Client closed socket (%d)", events[i].data.fd);
+					if (close (events[i].data.fd) == -1)
+						logger_log (self->_log, CRITICAL, "daemon_run:close");
+					continue;
+				}
 
 				/* Write to socket if it's ready */
 				if (events[i].events & EPOLLOUT) 
@@ -238,7 +254,7 @@ void daemon_run (Daemon * self)
 					 * but removing it causes "Bad file descriptor" errors */
 					if (epoll_ctl (self->_epfd, EPOLL_CTL_DEL, 
 						events[i].data.fd, NULL) == -1)
-						logger_log (self->_log, CRITICAL, "daemon_run:epoll_ctl");
+						logger_log (self->_log, CRITICAL, "daemon_run:epoll_ctl (2)");
 
 					if (close (events[i].data.fd) == -1)
 						logger_log (self->_log, CRITICAL, "daemon_run:close");
@@ -247,24 +263,10 @@ void daemon_run (Daemon * self)
 				/* Read from socket if it's ready */
 				if (events[i].events & EPOLLIN) 
 				{
+					logger_log (self->_log, DEBUG, "daemon_run:epoll_ctl (3)");
 					if (_daemon_read_socket(self, events[i].data.fd))
 						logger_log (self->_log, CRITICAL,
 									"daemon_run:_daemon_read_socket");
-				}
-
-				/* Close socket if Client closed it */
-				if (events[i].events & EPOLLHUP)
-				{
-					/* This should not be necessary according to epoll(7)
-					 * but removing it causes "Bad file descriptor" errors */
-					if (epoll_ctl (self->_epfd, EPOLL_CTL_DEL, 
-						events[i].data.fd, NULL) == -1)
-						logger_log (self->_log, CRITICAL, "daemon_run:epoll_ctl");
-
-					logger_log (self->_log, DEBUG,
-							"Client closed socket (%d)", events[i].data.fd);
-					if (close (events[i].data.fd) == -1)
-						logger_log (self->_log, CRITICAL, "daemon_run:close");
 				}
 			}
 		}
@@ -661,16 +663,16 @@ static int _daemon_read_socket (Daemon * self, int sock)
 	if (message == NULL)
 		logger_log (self->_log, CRITICAL, "_daemon_read_socket:message_new");
 
-	/* Add message to message queue */
-	if (messagelist_append (self->_mlist, message))	
-		logger_log (self->_log, CRITICAL, "_daemon_read_socket:messagelist_append");
-
 	/* Update the epoll event for _sock to be notified 
 	 * when it's ready to write */
 	event.data.fd = sock;
 	event.events = EPOLLOUT;
 	if (epoll_ctl (self->_epfd, EPOLL_CTL_MOD, sock, &event) == -1)
 		logger_log (self->_log, CRITICAL, "_daemon_read_socket:epoll_ctl");
+
+	/* Add message to message queue */
+	if (messagelist_append (self->_mlist, message))	
+		logger_log (self->_log, CRITICAL, "_daemon_read_socket:messagelist_append");
 
 	return 0;
 }
