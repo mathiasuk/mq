@@ -147,34 +147,16 @@ void client_run (Client * self)
 		self->_argv[self->_arg_index] != NULL)
 	{
 		_client_send_command (self);
+		ret = _client_recv_message (self);
+		close (self->_sock);
+		exit (ret);
 	}
 	else
-		printf ("No command provided\n");
+		printf ("No command provided, try: mq help\n");
 
-	ret = _client_recv_message (self);
+	close (self->_sock);
 
-/*
- *     while (printf( "> "), fgets (buf, 100, stdin), !feof (stdin)) {
- *         if (send (sock, buf, strlen (buf), 0) == -1) {
- *             perror ("send");
- *             exit (EXIT_FAILURE);
- *         }
- * 
- *         [> if ((t=recv (sock, str, 100, 0)) > 0) { <]
- *             [> str[t] = '\0'; <]
- *             [> printf ("echo> %s", str); <]
- *         [> } else { <]
- *             [> if (t < 0) perror ("recv"); <]
- *             [> else printf ("Server closed connection\n"); <]
- *             [> exit (1); <]
- *         [> } <]
- *         break ;
- *     }
- */
-
-    close (self->_sock);
-
-    exit (ret);
+    exit (EXIT_SUCCESS);
 }
 
 
