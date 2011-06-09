@@ -831,9 +831,15 @@ static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char *
 	Process * p;
 	int uid;
 
+	/* Block signals */
+	_daemon_block_signals (self);
+
 	if (*argv == NULL)
 	{
 		*message = strdup ("Expected: 'term[inate] UID'\n");
+
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
 		return KO;
 	}
 
@@ -842,6 +848,9 @@ static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char *
 	uid = strtol (*argv, NULL, 10);
 	if (errno != 0) {
 		*message = strdup ("Expected: 'term[inate] UID'\n");
+
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
 		return KO;
 	}
 
@@ -853,12 +862,19 @@ static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char *
 		*message = msprintf ("Unknown UID '%d'\n", uid);
 		if (*message == NULL)
 			logger_log (self->_log, CRITICAL, "_daemon_action_terminate:msprintf");
+
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
 		return KO;
 	}
 
 	if (process_terminate (p))
 		logger_log (self->_log, CRITICAL, "_daemon_action_terminate:process_terminate");
 	logger_log (self->_log, DEBUG, "Terminating process %d", p->_pid);
+
+
+	/* Unblock signals */
+	_daemon_unblock_signals (self);
 
 	return OK;
 }
@@ -879,6 +895,9 @@ static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** mes
 	if (*argv == NULL)
 	{
 		*message = strdup ("Expected: 'kill UID'\n");
+
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
 		return KO;
 	}
 
@@ -901,9 +920,6 @@ static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** mes
 		*message = msprintf ("Unknown UID '%d'\n", uid);
 		if (*message == NULL)
 			logger_log (self->_log, CRITICAL, "_daemon_action_kill:msprintf");
-
-		/* Unblock signals */
-		_daemon_unblock_signals (self);
 		return KO;
 	}
 
