@@ -114,6 +114,29 @@ Process * pslist_get_ps_by_pid (PsList * self, pid_t pid)
 	return NULL;
 }
 
+/* 
+ * Get the process with given uid
+ * args:   Pslist, uid
+ * return: Process with uid, or NULL on error
+ */
+Process * pslist_get_ps_by_uid (PsList * self, int uid)
+{
+	int i;
+	Process * p;
+
+	if (uid < 0)
+		return NULL;
+
+	for (i = 0; i < self->_len; i++) {
+		p = pslist_get_ps (self, i);
+		if (p->uid == uid)
+			return p;
+	}
+
+	/* uid not found */
+	return NULL;
+}
+
 /*
  * Return the index of Process with given uid in the list
  * args:   Pslist, uid
