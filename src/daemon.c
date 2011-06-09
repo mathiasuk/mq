@@ -49,6 +49,7 @@ static MessageType _daemon_action_add (Daemon * self, char ** argv, char ** mess
 static MessageType _daemon_action_list (Daemon * self, char ** message);
 static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** message);
 static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char ** message);
+static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** message);
 
 /* Signal handler */
 void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr);
@@ -563,6 +564,10 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 	{
 		return _daemon_action_terminate (self, argv, message);
 	}
+	else if (strcmp (action, "kill") == 0)
+	{
+		return _daemon_action_kill (self, argv, message);
+	}
 	else if (strcmp (action, "exit") == 0)
 	{
 		daemon_stop (self);
@@ -850,6 +855,48 @@ static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char *
 
 	if (process_terminate (p))
 		logger_log (self->_log, CRITICAL, "_daemon_action_terminate:process_terminate");
+	logger_log (self->_log, DEBUG, "Terminating process %d", p->_pid);
+
+	return OK;
+}
+
+/* 
+ * Kill given process
+ * args:   Daemon, additional arguments, pointer to return message string
+ * return: MessageType
+ */
+static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** message)
+{
+	Process * p;
+	int uid;
+
+	if (*argv == NULL)
+	{
+		*message = strdup ("Expected: 'kill UID'\n");
+		return KO;
+	}
+
+	/* Convert the argument to int */
+	errno = 0;
+	uid = strtol (*argv, NULL, 10);
+	if (errno != 0) {
+		*message = strdup ("Expected: 'kill UID'\n");
+		return KO;
+	}
+
+	/* Get the process with given uid */
+	p = pslist_get_ps_by_uid (self->_pslist, uid);
+
+	if (p == NULL)
+	{
+		*message = msprintf ("Unknown UID '%d'\n", uid);
+		if (*message == NULL)
+			logger_log (self->_log, CRITICAL, "_daemon_action_kill:msprintf");
+		return KO;
+	}
+
+	if (process_kill (p))
+		logger_log (self->_log, CRITICAL, "_daemon_action_kill:process_kill");
 	logger_log (self->_log, DEBUG, "Terminating process %d", p->_pid);
 
 	return OK;
