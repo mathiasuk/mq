@@ -48,6 +48,7 @@ static int _daemon_read_socket (Daemon * self, int sock);
 static MessageType _daemon_action_add (Daemon * self, char ** argv, char ** message);
 static MessageType _daemon_action_list (Daemon * self, char ** message);
 static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** message);
+static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char ** message);
 
 /* Signal handler */
 void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr);
@@ -546,25 +547,43 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 	/* Move to the next argument */
 	argv++;
 
-	if (strcmp (action, "add") == 0) {
+	if (strcmp (action, "add") == 0)
+	{
 		return _daemon_action_add (self, argv, message);
-	} else if (strcmp (action, "list") == 0 || strcmp (action, "ls") == 0) {
+	}
+	else if (strcmp (action, "list") == 0 || strcmp (action, "ls") == 0)
+	{
 		return _daemon_action_list (self, message);
-	} else if (strcmp (action, "move") == 0 || strcmp (action, "mv") == 0) {
+	}
+	else if (strcmp (action, "move") == 0 || strcmp (action, "mv") == 0)
+	{
 		return _daemon_action_move (self, argv, message);
-	} else if (strcmp (action, "exit") == 0) {
+	}
+	else if (strcmp (action, "terminate") == 0 || strcmp (action, "term") == 0)
+	{
+		return _daemon_action_terminate (self, argv, message);
+	}
+	else if (strcmp (action, "exit") == 0)
+	{
 		daemon_stop (self);
 		/* FIXME: OK is never returned as daemon is stopped ... */
 		return OK;
-	} else if (strcmp (action, "debug") == 0) {
+	}
+	else if (strcmp (action, "debug") == 0)
+	{
 		logger_set_debugging (self->_log, 1);
 		return OK;
-	} else if (strcmp (action, "nodebug") == 0) {
+	}
+	else if (strcmp (action, "nodebug") == 0)
+	{
 		logger_set_debugging (self->_log, 0);
 		return OK;
-	} else {
+	}
+	else
+	{
 		logger_log (self->_log, WARNING, "Unknown action: '%s'", line);
 	}
+
 	return KO;
 }
 
@@ -790,6 +809,39 @@ static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** mes
 	/* Move the processes */
 	if (pslist_move_items (self->_pslist, src_i, 1, dst_i))
 		logger_log (self->_log, CRITICAL, "_daemon_action_move:pslist_move_items");
+
+	return OK;
+}
+
+/* 
+ * Terminate given process
+ * args:   Daemon, additional arguments, pointer to return message string
+ * return: MessageType
+ */
+static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char ** message)
+{
+	Process * p;
+	int uid;
+
+	if (*argv == NULL)
+	{
+		*message = strdup ("Expected: 'term[inate] UID'\n");
+		return KO;
+	}
+
+	/* Convert the argument to int */
+	errno = 0;
+	uid = strtol (*argv, NULL, 10);
+	if (errno != 0) {
+		*message = strdup ("Expected: 'term[inate] UID'\n");
+		return KO;
+	}
+
+	/* Get the process with given uid */
+	p = pslist_get_ps_by_uid (self->_pslist, uid);
+
+	if (process_terminate (p))
+		logger_log (self->_log, CRITICAL, "_daemon_action_terminate:process_terminate");
 
 	return OK;
 }

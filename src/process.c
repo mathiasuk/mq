@@ -181,6 +181,16 @@ int process_wait (Process * self, siginfo_t * siginfo)
 }
 
 /*
+ * Terminate the process
+ * args:   Process
+ * return: 0 on sucess, 1 on error
+ */
+int process_terminate (Process * self)
+{
+	return 0;
+}
+
+/*
  * Return the process' state
  * args:   Process
  * return: PsState or -1 on error

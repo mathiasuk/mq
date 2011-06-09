@@ -54,6 +54,7 @@ Process * process_new (char ** argv);
 char * process_str (Process * self);
 int process_run (Process * self);
 int process_wait (Process * self, siginfo_t * siginfo);
+int process_terminate (Process * self);
 
 PsState process_get_state (Process * self);
 pid_t process_get_pid (Process * self);
