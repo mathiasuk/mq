@@ -304,9 +304,6 @@ void daemon_stop (Daemon * self)
 	/* Close the logger */
 	logger_close (self->_log);
 
-	/* Unblock signals */
-	_daemon_unblock_signals (self);
-
 	exit (EXIT_SUCCESS);
 }
 
