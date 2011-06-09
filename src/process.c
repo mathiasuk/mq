@@ -222,7 +222,7 @@ int process_kill (Process * self)
 	if (self->_state != RUNNING)
 		return 0;
 
-	return _process_send_signal (self, SIGTERM);
+	return _process_send_signal (self, SIGKILL);
 }
 
 /*
