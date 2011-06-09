@@ -51,7 +51,7 @@ static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** mes
 static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char ** message);
 static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** message);
 static MessageType _daemon_action_help (Daemon * self, char ** argv, char ** message);
-static int _daemon_terminate_all (Daemon * self);
+static int _daemon_kill_pg (Daemon * self, int sig);
 
 /* Signal handler */
 void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr);
@@ -284,8 +284,8 @@ void daemon_stop (Daemon * self)
 	_daemon_block_signals (self);
 
 	/* Terminate all running processes */
-	if (_daemon_terminate_all (self))
-		logger_log (self->_log, CRITICAL, "daemon_run:_daemon_terminate_all");
+	if (_daemon_kill_pg (self, SIGTERM))
+		logger_log (self->_log, CRITICAL, "daemon_run:_daemon_kill_pg");
 
 	logger_log (self->_log, INFO, "Shutting daemon down");
 
@@ -991,38 +991,18 @@ Actions:\n\
 }
 
 /*
- * Terminate all running processes
- * args:   Daemon
+ * Send a signal to all processes in the current process group
+ * args:   Daemon, signal
  * return: 0 on success, 1 on failure
  */
-static int _daemon_terminate_all (Daemon * self)
+static int _daemon_kill_pg (Daemon * self, int sig)
 {
-	int n_running, i;
-	int * l_running = NULL;	/* array of Processes waiting */
-	Process * p;
+	/* kill (0, sig): sig is sent to every process in the 
+	 * process group of the calling process. */
+	if (kill (0, sig) == -1)
+		return 1;
 
-	/* Get the number of processes running */
-	n_running = pslist_get_nps (self->_pslist, RUNNING, NULL);
-
-	if (n_running < 1)
-		/* Nothing to do */
-		return 0;
-
-	/* Get the list of processes running */
-	l_running  = malloc0 (n_running * sizeof (int));
-	if (l_running == NULL)
-		logger_log (self->_log, CRITICAL, "daemon_terminate_all:malloc0");
-	pslist_get_nps (self->_pslist, RUNNING, l_running);
-
-	for (i = 0; i < n_running; i++)
-	{
-		p = pslist_get_ps (self->_pslist, l_running[i]);
-		if (p == NULL)
-			logger_log (self->_log, CRITICAL, "_daemon_terminate_all:pslist_get_ps");
-		if (process_terminate (p))
-			logger_log (self->_log, CRITICAL, "_daemon_terminate_all:process_terminate");
-		logger_log (self->_log, DEBUG, "Terminated: %d", process_get_pid (p));
-	}
+	logger_log (self->_log, DEBUG, "Sent signal %d to all processes", sig);
 
 	return 0;
 }
