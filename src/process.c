@@ -28,6 +28,7 @@
 #define MAX_ARGS	100		/* Maximum number of args for a command */
 
 /* Private methods */
+static char * _process_get_state_str (Process * self);
 static int _process_send_signal (Process * self, int sig);
 
 
@@ -109,14 +110,14 @@ char * process_str (Process * self)
 		command[total_len - 1] = '\0';	/* -1 removes last separation whitespace */	
 
 	/* Get Process state's string */
-	state = process_get_state_str (self);
+	state = _process_get_state_str (self);
 
 	/* If the process exited we print the exit code */
 	if (self->_state == EXITED || self->_state == KILLED)
-		ret = msprintf ("%-4d %s   %-4d %s ", self->uid, state,
+		ret = msprintf ("%-4d %-3s %-4d %s ", self->uid, state,
 						self->_ret, command);	/* "4d": STR_MAX_UID_LEN - 1 */
 	else
-		ret = msprintf ("%-4d %s        %s ", self->uid,
+		ret = msprintf ("%-4d %-8s %s ", self->uid,
 						state, command);	/* "4d": STR_MAX_UID_LEN - 1 */
 
 	return ret;
@@ -249,12 +250,15 @@ pid_t process_get_pid (Process * self)
 	return self->_pid;
 }
 
+
+/* Private methods */
+
 /* 
  * Return the process's state string
  * args:   Process
  * return: state's string
  */
-char * process_get_state_str (Process * self)
+static char * _process_get_state_str (Process * self)
 {
 	/* Get string for the Process' state */
 	switch (self->_state)
@@ -262,7 +266,7 @@ char * process_get_state_str (Process * self)
 		case WAITING:
 			return "W";
 		case RUNNING:
-			return "R";
+			return "R*";
 		case EXITED:
 			return "C";		/* COMPLETE */
 		case KILLED:
@@ -275,7 +279,6 @@ char * process_get_state_str (Process * self)
 			return "?";
 	}
 }
-
 
 /* 
  * Send signal to process

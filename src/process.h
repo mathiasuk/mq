@@ -59,6 +59,5 @@ int process_kill (Process * self);
 
 PsState process_get_state (Process * self);
 pid_t process_get_pid (Process * self);
-char * process_get_state_str (Process * self);
 
 #endif /* PROCESS_H */
