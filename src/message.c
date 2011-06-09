@@ -25,7 +25,7 @@
 #include "utils.h"
 
 /* Private methods */
-char * _message_get_next_line (Message * self);
+static char * _message_get_next_line (Message * self);
 
 /* 
  * Create and initialise a message
@@ -110,7 +110,7 @@ int message_send (Message * self)
  * args:   Message
  * return: next line or NULL
  */
-char * _message_get_next_line (Message * self)
+static char * _message_get_next_line (Message * self)
 {
 	static int start = 0;
 	char * line, * startp;
