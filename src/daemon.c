@@ -45,6 +45,7 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 static void _daemon_block_signals (Daemon * self);
 static void _daemon_unblock_signals (Daemon * self);
 static int _daemon_read_socket (Daemon * self, int sock);
+static MessageType _daemon_action_add (Daemon * self, char ** argv, char ** message);
 static MessageType _daemon_action_list (Daemon * self, char ** message);
 static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** message);
 
@@ -504,8 +505,7 @@ static int _daemon_daemonize (Daemon * self)
 static MessageType _daemon_parse_line (Daemon * self, char * line,
 									   int len, char ** message)
 {
-	char * action, * s;
-	Process * p;
+	char * action;
 	int argc = 0, i;
 	char ** argv;
 
@@ -546,36 +546,8 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 	/* Move to the next argument */
 	argv++;
 
-	/* TODO: split each action in its own private method */
-
 	if (strcmp (action, "add") == 0) {
-		/* Check for extra arguments */
-		if (*argv != NULL)
-		{
-			/* Create Process:  */
-			p = process_new (argv);
-			if (p == NULL)
-				logger_log (self->_log, CRITICAL, 
-						    "_daemon_parse_line:process_new");
-			s = process_str (p);
-			if (s == NULL)
-				logger_log (self->_log, CRITICAL,
-							"_daemon_parse_line:process_str");
-			/* Add process to pslist */
-			if (pslist_append (self->_pslist, p))
-				logger_log (self->_log, CRITICAL,
-						    "_daemon_parse_line:pslit_append");
-			logger_log (self->_log, DEBUG, "Added Process to queue: '%s'", s);
-			free (s);
-
-			/* Start processes if any CPUs are available */
-			daemon_run_processes (self);
-
-			return OK;
-		} else {
-			logger_log (self->_log, WARNING, "Expected: 'add COMMAND'");
-			*message = strdup ("Missing command for add\n");
-		}
+		return _daemon_action_add (self, argv, message);
 	} else if (strcmp (action, "list") == 0 || strcmp (action, "ls") == 0) {
 		return _daemon_action_list (self, message);
 	} else if (strcmp (action, "move") == 0 || strcmp (action, "mv") == 0) {
@@ -669,9 +641,48 @@ static int _daemon_read_socket (Daemon * self, int sock)
 	return 0;
 }
 
+/*
+ * Add a Process to the queue
+ * args:   Daemon, additional arguments, pointer to return message string
+ * return: MessageType
+ */
+static MessageType _daemon_action_add (Daemon * self, char ** argv, char ** message)
+{
+	Process * p;
+	char * s;
+
+	/* Check for extra arguments */
+	if (*argv == NULL) {
+		logger_log (self->_log, WARNING, "Expected: 'add COMMAND'");
+		*message = strdup ("Missing command for add\n");
+		return KO;
+	}
+
+	/* Create Process:  */
+	p = process_new (argv);
+	if (p == NULL)
+		logger_log (self->_log, CRITICAL, 
+					"_daemon_parse_line:process_new");
+	s = process_str (p);
+	if (s == NULL)
+		logger_log (self->_log, CRITICAL,
+					"_daemon_parse_line:process_str");
+	/* Add process to pslist */
+	if (pslist_append (self->_pslist, p))
+		logger_log (self->_log, CRITICAL,
+					"_daemon_parse_line:pslit_append");
+	logger_log (self->_log, DEBUG, "Added Process to queue: '%s'", s);
+	free (s);
+
+	/* Start processes if any CPUs are available */
+	daemon_run_processes (self);
+
+	return OK;
+}
+
 /* 
  * Build list of all processes as string
- * args:   Daemon, pointer to string
+ * args:   Daemon, pointer to return message string
  * return: MessageType
  */
 static MessageType _daemon_action_list (Daemon * self, char ** message)
@@ -733,7 +744,7 @@ static MessageType _daemon_action_list (Daemon * self, char ** message)
 
 /* 
  * Build list of all processes as string
- * args:   Daemon, pointer to string
+ * args:   Daemon, additional arguments, pointer to return message string
  * return: MessageType
  */
 static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** message)
