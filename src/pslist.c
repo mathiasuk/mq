@@ -61,7 +61,7 @@ Process * pslist_get_ps (PsList * self, int index)
  */
 int pslist_move_items (List * self, int start, int count, int dest)
 {
-	return list_get_item (self, start, count, dest);
+	return list_move_items (self, start, count, dest);
 }
 
 
@@ -93,7 +93,7 @@ int pslist_get_nps (PsList * self, PsState state, int * list)
 
 /* 
  * Get the process with given PID
- * args:   Pslit, PID
+ * args:   Pslist, PID
  * return: Process with PID, or NULL on error
  */
 Process * pslist_get_ps_by_pid (PsList * self, pid_t pid)
@@ -112,4 +112,24 @@ Process * pslist_get_ps_by_pid (PsList * self, pid_t pid)
 
 	/* pid not found */
 	return NULL;
+}
+
+/*
+ * Return the index of Process with given uid in the list
+ * args:   Pslist, uid
+ * return: index of Process or -1 on error
+ */
+int pslist_get_uid_index (PsList * self, int uid)
+{
+	int i;
+	Process * p;
+
+	for (i = 0; i < self->_len; i++) {
+		p = pslist_get_ps (self, i);
+		if (p->uid == uid)
+			return i;
+	}
+
+	/* pid not found */
+	return -1;
 }

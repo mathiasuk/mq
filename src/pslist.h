@@ -35,5 +35,6 @@ int pslist_move_items (List * self, int start, int count, int dest);
 /* New methods */
 int pslist_get_nps (PsList * self, PsState state, int * list);
 Process * pslist_get_ps_by_pid (PsList * self, pid_t pid);
+int pslist_get_uid_index (PsList * self, int uid);
 
 #endif /* PSLIST_H */
