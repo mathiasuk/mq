@@ -29,11 +29,11 @@
 #include "utils.h"
 
 /* Private methods */
-char * _client_get_next_arg (Client * self);
-int _client_parse_opt (Client * self);
-int _client_daemon_running (Client * self);
-void _client_send_command (Client * self);
-int _client_recv_message (Client * self);
+static char * _client_get_next_arg (Client * self);
+static int _client_parse_opt (Client * self);
+static int _client_daemon_running (Client * self);
+static void _client_send_command (Client * self);
+static int _client_recv_message (Client * self);
 
 /* 
  * Create and initialise the Cleint
@@ -186,7 +186,7 @@ void client_run (Client * self)
  *		   NULL)
  * return: Next argument or NULL 
  */
-char * _client_get_next_arg (Client * self)
+static char * _client_get_next_arg (Client * self)
 {
 	self->_arg_index++;	/* Look for the next arg, this means we skip argv[0] */
 
@@ -201,7 +201,7 @@ char * _client_get_next_arg (Client * self)
  * args:   Client, index of option in Client->_argv
  * return: 0 on success, 1 on error
  */
-int _client_parse_opt (Client * self)
+static int _client_parse_opt (Client * self)
 {
 	char * arg, * narg;
 
@@ -279,7 +279,7 @@ int _client_parse_opt (Client * self)
  * args:   Client
  * return: 1 if Daemon is running, else 0
  */
-int _client_daemon_running (Client * self)
+static int _client_daemon_running (Client * self)
 {
 	FILE * f;
 	char buf[LINE_MAX];
@@ -335,7 +335,7 @@ int _client_daemon_running (Client * self)
  * args:   Client
  * return: void
  */
-void _client_send_command (Client * self)
+static void _client_send_command (Client * self)
 {
 	int i;
 	char * arg;
@@ -362,7 +362,7 @@ void _client_send_command (Client * self)
  * args:   Client
  * return: EXIT_SUCESS, EXIT_FAILURE
  */
-int _client_recv_message (Client * self)
+static int _client_recv_message (Client * self)
 {
 	MessageType type;
 	char buf[LINE_MAX];
