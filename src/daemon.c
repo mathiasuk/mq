@@ -539,6 +539,8 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 		logger_log (self->_log, CRITICAL, "_daemon_parse_line:malloc0");
 	for (i = 0; i < argc; i++) {
 		argv[i] = strdup (line);
+		if (argv[i] == NULL)
+			logger_log (self->_log, CRITICAL, "_daemon_parse_line:strdup");
 		/* Move the the next argument in line */
 		line += strlen(line) + 1;
 	}
@@ -682,6 +684,8 @@ static MessageType _daemon_action_add (Daemon * self, char ** argv, char ** mess
 	if (*argv == NULL) {
 		logger_log (self->_log, WARNING, "Expected: 'add COMMAND'");
 		*message = strdup ("Missing command for add\n");
+		if (*message == NULL)
+			logger_log (self->_log, CRITICAL, "_daemon_action_add:strdup");
 		return KO;
 	}
 
@@ -791,6 +795,8 @@ static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** mes
 	if (src == NULL || dst == NULL) {
 		logger_log (self->_log, WARNING, "Expected: 'mv UID DEST'");
 		*message = strdup ("Expected: 'mv UID DEST'\n");
+		if (*message == NULL)
+			logger_log (self->_log, CRITICAL, "_daemon_action_move:strdup");
 		return KO;
 	}
 
@@ -801,11 +807,15 @@ static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** mes
 	src_i = strtol (src, NULL, 10);
 	if (errno != 0) {
 		*message = strdup ("Expected: 'mv UID DEST'\n");
+		if (*message == NULL)
+			logger_log (self->_log, CRITICAL, "_daemon_action_move:strdup");
 		return KO;
 	}
 	dst_i = strtol (dst, NULL, 10);
 	if (errno != 0) {
 		*message = strdup ("Expected: 'mv UID DEST'\n");
+		if (*message == NULL)
+			logger_log (self->_log, CRITICAL, "_daemon_action_move:strdup");
 		return KO;
 	}
 
@@ -837,6 +847,8 @@ static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char *
 	if (*argv == NULL)
 	{
 		*message = strdup ("Expected: 'term[inate] UID'\n");
+		if (*message == NULL)
+			logger_log (self->_log, CRITICAL, "_daemon_action_terminate:strdup");
 
 		/* Unblock signals */
 		_daemon_unblock_signals (self);
@@ -848,6 +860,8 @@ static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char *
 	uid = strtol (*argv, NULL, 10);
 	if (errno != 0) {
 		*message = strdup ("Expected: 'term[inate] UID'\n");
+		if (*message == NULL)
+			logger_log (self->_log, CRITICAL, "_daemon_action_terminate:strdup");
 
 		/* Unblock signals */
 		_daemon_unblock_signals (self);
@@ -895,6 +909,8 @@ static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** mes
 	if (*argv == NULL)
 	{
 		*message = strdup ("Expected: 'kill UID'\n");
+		if (*message == NULL)
+			logger_log (self->_log, CRITICAL, "_daemon_action_kill:strdup");
 
 		/* Unblock signals */
 		_daemon_unblock_signals (self);
@@ -906,6 +922,8 @@ static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** mes
 	uid = strtol (*argv, NULL, 10);
 	if (errno != 0) {
 		*message = strdup ("Expected: 'kill UID'\n");
+		if (*message == NULL)
+			logger_log (self->_log, CRITICAL, "_daemon_action_kill:strdup");
 
 		/* Unblock signals */
 		_daemon_unblock_signals (self);
