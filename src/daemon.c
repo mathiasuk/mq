@@ -50,6 +50,7 @@ static MessageType _daemon_action_list (Daemon * self, char ** message);
 static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** message);
 static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char ** message);
 static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** message);
+static MessageType _daemon_action_help (Daemon * self, char ** argv, char ** message);
 static int _daemon_terminate_all (Daemon * self);
 
 /* Signal handler */
@@ -92,42 +93,42 @@ Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path)
 	daemon->_ncpus = sysconf (_SC_NPROCESSORS_ONLN);
 	if (daemon->_ncpus < 1)
 		logger_log (daemon->_log, CRITICAL,
-					"daemon_setup: Can't find the number of CPUs");
+					"daemon_new: Can't find the number of CPUs");
 	logger_log (daemon->_log, DEBUG, "Found %d CPU(s)", daemon->_ncpus);
 
 	/* Unlink the socket's path to prevent EINVAL if the file already exist */
     if (unlink (daemon->_sock_path) == -1) {
 		/* Don't report error if the path didn't exist */
 		if (errno != ENOENT)
-			logger_log (daemon->_log, CRITICAL, "daemon_setup:unlink");
+			logger_log (daemon->_log, CRITICAL, "daemon_new:unlink");
 	}
 
 	/* Open the socket */
 	if ((daemon->_sock = socket (AF_UNIX, SOCK_STREAM, 0)) == -1)
-		logger_log (daemon->_log, CRITICAL, "daemon_setup:socket");
+		logger_log (daemon->_log, CRITICAL, "daemon_new:socket");
 
 	/* Bind the socket */
 	daemon->_slocal.sun_family = AF_UNIX;
     strcpy (daemon->_slocal.sun_path, daemon->_sock_path);
     len = strlen (daemon->_slocal.sun_path) + sizeof (daemon->_slocal.sun_family);
     if (bind (daemon->_sock, (struct sockaddr *) &daemon->_slocal, len) == -1)
-		logger_log (daemon->_log, CRITICAL, "daemon_setup:bind: %s",
+		logger_log (daemon->_log, CRITICAL, "daemon_new:bind: %s",
 					daemon->_sock_path);
 
 	/* Listen on the socket */
 	if (listen (daemon->_sock, BACKLOG) == -1)
-		logger_log (daemon->_log, CRITICAL, "daemon_setup:listen");
+		logger_log (daemon->_log, CRITICAL, "daemon_new:listen");
 
 	/* Create the epoll fd */
 	daemon->_epfd = epoll_create (5);
 	if (daemon->_epfd < 0)
-		logger_log (daemon->_log, CRITICAL, "daemon_setup:epoll_create");
+		logger_log (daemon->_log, CRITICAL, "daemon_new:epoll_create");
 
 	/* We want to be notified when there is data to read */
 	event.data.fd = daemon->_sock;
 	event.events = EPOLLIN;
 	if (epoll_ctl (daemon->_epfd, EPOLL_CTL_ADD, daemon->_sock, &event) == -1)
-		logger_log (daemon->_log, CRITICAL, "daemon_setup:epoll_ctl");
+		logger_log (daemon->_log, CRITICAL, "daemon_new:epoll_ctl");
 
 	/* Initialise PsList */
 	daemon->_pslist = pslist_new ();
@@ -228,7 +229,7 @@ void daemon_run (Daemon * self)
 					/* Remove message from the MessageList */
 					if (messagelist_remove (self->_mlist, message))
 						logger_log (self->_log, CRITICAL,
-									"daemon_run:_daemon_read_socket");
+									"daemon_run:_messagelist_remove");
 
 					message_del (message);
 
@@ -434,38 +435,38 @@ static int _daemon_daemonize (Daemon * self)
 	/* Create new process */
 	pid = fork ();
 	if (pid == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:fork");
+		logger_log (self->_log, CRITICAL, "_daemon_daemonize:fork");
 	else if (pid != 0)		/* in Client */
 		return 1;
 
 	/* Write current PID to pid file */
 	pid_file = fopen (self->_pid_path, "w");
 	if (pid_file == NULL)
-		logger_log (self->_log, CRITICAL, "daemon_setup:fopen: '%s'", self->_pid_path);
+		logger_log (self->_log, CRITICAL, "_daemon_daemonize:fopen: '%s'", self->_pid_path);
 	if (fprintf (pid_file, "%d\n", getpid ()) == 0)
-		logger_log (self->_log, CRITICAL, "daemon_setup:fwrite");
+		logger_log (self->_log, CRITICAL, "_daemon_daemonize:fwrite");
 	if (fclose (pid_file) != 0)
-		logger_log (self->_log, CRITICAL, "daemon_setup:fclose");
+		logger_log (self->_log, CRITICAL, "_daemon_daemonize:fclose");
 
 	/* Create new session and process group */
 	if (setsid () == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:setsid");
+		logger_log (self->_log, CRITICAL, "_daemon_daemonize:setsid");
 
 	/* Set the working directory to the root directory */
 	if (chdir ("/") == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:chdir");
+		logger_log (self->_log, CRITICAL, "_daemon_daemonize:chdir");
 
 	/* Initialise the signal masks for SIGCHLD */
 	if (sigemptyset (&self->_blk_chld) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:sigemptyset");
+		logger_log (self->_log, CRITICAL, "_daemon_daemonize:sigemptyset");
 	if (sigaddset (&self->_blk_chld, SIGCHLD) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:sigaddset");
+		logger_log (self->_log, CRITICAL, "_daemon_daemonize:sigaddset");
 
 	/* Initialise the signal masks for SIGTERM */
 	if (sigemptyset (&self->_blk_term) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:sigemptyset");
+		logger_log (self->_log, CRITICAL, "_daemon_daemonize:sigemptyset");
 	if (sigaddset (&self->_blk_term, SIGTERM) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:sigaddset");
+		logger_log (self->_log, CRITICAL, "_daemon_daemonize:sigaddset");
 
 	/* Attach the signal handler for SIGCHLD */
 	sigchld_action.sa_sigaction = sigchld_handler;
@@ -474,14 +475,14 @@ static int _daemon_daemonize (Daemon * self)
 	 * the Process without waiting for it */
 	sigchld_action.sa_flags = SA_SIGINFO | SA_NOCLDWAIT;
 	if (sigaction (SIGCHLD, &sigchld_action, NULL) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:sigaction");
+		logger_log (self->_log, CRITICAL, "_daemon_daemonize:sigaction");
 
 	/* Attach the signal handler for SIGTERM */
 	sigterm_action.sa_handler = sigterm_handler;
 	sigemptyset (&sigterm_action.sa_mask);
 	sigchld_action.sa_flags = 0;
 	if (sigaction (SIGTERM, &sigterm_action, NULL) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:sigaction");
+		logger_log (self->_log, CRITICAL, "_daemon_daemonize:sigaction");
 
 	/* Close stdin, stdout, stderr */
 	close (0);
@@ -568,6 +569,10 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 	else if (strcmp (action, "terminate") == 0 || strcmp (action, "term") == 0)
 	{
 		return _daemon_action_terminate (self, argv, message);
+	}
+	else if (strcmp (action, "help") == 0 || strcmp (action, "usage") == 0)
+	{
+		return _daemon_action_help (self, argv, message);
 	}
 	else if (strcmp (action, "kill") == 0)
 	{
@@ -665,7 +670,7 @@ static int _daemon_read_socket (Daemon * self, int sock)
 	event.data.fd = sock;
 	event.events = EPOLLOUT;
 	if (epoll_ctl (self->_epfd, EPOLL_CTL_MOD, sock, &event) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_setup:epoll_ctl");
+		logger_log (self->_log, CRITICAL, "_daemon_read_socket:epoll_ctl");
 
 	return 0;
 }
@@ -947,6 +952,41 @@ static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** mes
 
 	/* Unblock signals */
 	_daemon_unblock_signals (self);
+
+	return OK;
+}
+
+/*
+ * Print help message
+ * args:   Daemon, additional arguments, pointer to return message string
+ * return: MessageType
+ */
+static MessageType _daemon_action_help (Daemon * self, char ** argv, char ** message)
+{
+	/* TODO: parse argv and print help for specific action */
+	char * help_message = "\
+usage: mq [-s <socket>] [-p <pidfile>] [-l <logfile>]\n\
+          [-n <ncpus>] <action> [<args>]\n\
+\n\
+Actions:\n\
+    add	<command>\n\
+        Add <command> to the queue\n\
+	list\n\
+        List all command in the queue\n\
+    move UID DST\n\
+        Move command UID to position DST in the queue\n\
+    term[inate] UID\n\
+        Terminate the command UID\n\
+    kill UID\n\
+        Kill the command UID\n\
+    exit\n\
+        Terminate all running commands and stop the daemon\n\
+    debug|nodebug\n\
+        enable|disable debugging\n";
+
+	*message = strdup (help_message);
+	if (*message == NULL)
+		logger_log (self->_log, CRITICAL, "_daemon_action_help:strdup");
 
 	return OK;
 }
