@@ -27,6 +27,10 @@
 
 #define MAX_ARGS	100		/* Maximum number of args for a command */
 
+/* Private methods */
+static int _process_send_signal (Process * self, int sig);
+
+
 /* 
  * Create a Process object
  * args:   argv, argc
@@ -204,11 +208,21 @@ int process_terminate (Process * self)
 	if (self->_state != RUNNING)
 		return 0;
 
-	/* Sent SIGTERM to the process */
-	if (kill (self->_pid, SIGTERM) == -1)
-		return 1;
+	return _process_send_signal (self, SIGTERM);
+}
 
-	return 0;
+/*
+ * Kill the process
+ * args:   Process
+ * return: 0 on sucess, 1 on error
+ */
+int process_kill (Process * self)
+{
+	/* Kill only makes sense if the process is currently running */
+	if (self->_state != RUNNING)
+		return 0;
+
+	return _process_send_signal (self, SIGTERM);
 }
 
 /*
@@ -260,4 +274,20 @@ char * process_get_state_str (Process * self)
 		default:
 			return "?";
 	}
+}
+
+
+/* 
+ * Send signal to process
+ * args:   Process, signal
+ * return: 0 on success, 1 on error
+ */
+static int _process_send_signal (Process * self, int sig)
+{
+
+	/* Sent signal to the process */
+	if (kill (self->_pid, sig) == -1)
+		return 1;
+
+	return 0;
 }
