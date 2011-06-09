@@ -873,6 +873,9 @@ static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** mes
 	Process * p;
 	int uid;
 
+	/* Block signals */
+	_daemon_block_signals (self);
+
 	if (*argv == NULL)
 	{
 		*message = strdup ("Expected: 'kill UID'\n");
@@ -884,6 +887,9 @@ static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** mes
 	uid = strtol (*argv, NULL, 10);
 	if (errno != 0) {
 		*message = strdup ("Expected: 'kill UID'\n");
+
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
 		return KO;
 	}
 
@@ -895,12 +901,18 @@ static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** mes
 		*message = msprintf ("Unknown UID '%d'\n", uid);
 		if (*message == NULL)
 			logger_log (self->_log, CRITICAL, "_daemon_action_kill:msprintf");
+
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
 		return KO;
 	}
 
 	if (process_kill (p))
 		logger_log (self->_log, CRITICAL, "_daemon_action_kill:process_kill");
 	logger_log (self->_log, DEBUG, "Terminating process %d", p->_pid);
+
+	/* Unblock signals */
+	_daemon_unblock_signals (self);
 
 	return OK;
 }
