@@ -49,7 +49,4 @@ Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path);
 void daemon_run (Daemon * self);
 void daemon_stop (Daemon * self);
 
-void daemon_run_processes (Daemon * self);
-void daemon_wait_process (Daemon * self, siginfo_t * siginfo);
-
 #endif /* DAEMON_H */

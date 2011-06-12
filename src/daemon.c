@@ -27,6 +27,7 @@
 #include <errno.h>
 #include <sys/socket.h>
 #include <stdio.h>
+#include <sys/wait.h>
 
 #include "daemon.h"
 #include "logger.h"
@@ -40,6 +41,8 @@
 
 /* Private methods */
 static int _daemon_daemonize (Daemon * self);
+static void _daemon_run_processes (Daemon * self);
+static void _daemon_wait_processes (Daemon * self);
 static MessageType _daemon_parse_line (Daemon * self, char * line,
 									   int len, char ** message);
 static void _daemon_block_signals (Daemon * self);
@@ -94,7 +97,6 @@ Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path)
 		logger_log (daemon->_log, CRITICAL,
 					"daemon_new: Can't find the number of CPUs");
 	logger_log (daemon->_log, DEBUG, "Found %d CPU(s)", daemon->_ncpus);
-	daemon->_ncpus = 50;	/* FIXME: remove */
 
 	/* Unlink the socket's path to prevent EINVAL if the file already exist */
     if (unlink (daemon->_sock_path) == -1) {
@@ -176,6 +178,9 @@ void daemon_run (Daemon * self)
 				continue ;
 			logger_log (self->_log, CRITICAL, "daemon_run:epoll_wait");
 		}
+
+		/* Wait for any processes */
+		_daemon_wait_processes (self);
 
 		if (n_events == 0) {
 			/* Waited for TIMEOUT ms */
@@ -307,117 +312,6 @@ void daemon_stop (Daemon * self)
 	exit (EXIT_SUCCESS);
 }
 
-/*
- * Run processes in WAITING state if any CPUs available
- * args:   Daemon
- * return: void
- */
-void daemon_run_processes (Daemon * self)
-{
-	int n_running = 0;		/* number of Processes currently running */
-	int n_waiting = 0;		/* number of Processes waiting */
-	int * l_waiting = NULL;	/* array of Processes waiting */
-	Process * p = NULL;
-	char * s;
-	int i;
-
-	/* Block signals */
-	_daemon_block_signals (self);
-
-	/* Check if the number of running processes is less than 
-	 * the number of CPUs available */
-	n_running = pslist_get_nps (self->_pslist, RUNNING, NULL);
-	if (n_running >= self->_ncpus) {
-		/* Unblock signals */
-		_daemon_unblock_signals (self);
-		return ;
-	}
-
-	/* Get the number of processes waiting */
-	n_waiting = pslist_get_nps (self->_pslist, WAITING, NULL);
-
-
-	/* We only check this as the following malloc(0) would
-	 * fail when running with -lefence, FIXME: this is not the case with
-	 * malloc0 */
-	if (n_waiting == 0)
-	{
-		/* No processes are currently waiting */
-		/* Unblock signals */
-		_daemon_unblock_signals (self);
-		return ;
-	}
-
-	/* Get the list of processes waiting */
-	l_waiting  = malloc0 (n_waiting * sizeof (int));
-	if (l_waiting == NULL) {
-		logger_log (self->_log, WARNING, "daemon_run_processes:malloc0");
-		/* Unblock signals */
-		_daemon_unblock_signals (self);
-		return ;
-	}
-
-	pslist_get_nps (self->_pslist, WAITING, l_waiting);
-
-	/* FIXME: string from process_str should be freed */
-	/* Start as many Processes as we have free CPUs */
-	for (i = 0; (i < n_waiting) && (n_running <= self->_ncpus); i++)
-	{
-		p = pslist_get_ps (self->_pslist, l_waiting[i]);
-		if (process_run (p) == 0) {
-			s = process_str (p);
-			logger_log (self->_log, DEBUG, "Running Process (%d): '%s'", p->uid, s);
-			free (s);
-			n_running++;
-		} else {
-			s = process_str (p);
-			logger_log (self->_log, WARNING, "Failed to run Process: '%s'", s);
-			free (s);
-		}
-
-	}
-
-	free (l_waiting);
-
-	/* Unblock signals */
-	_daemon_unblock_signals (self);
-}
-
-/*
- * Wait for terminated processes 
- * args:   Daemon, siginfo_t from signal
- * return: void
- */
-void daemon_wait_process (Daemon * self, siginfo_t * siginfo)
-{
-	Process * p;
-
-	/* Block signals */
-	_daemon_block_signals (self);
-
-	/* Check that we received the expected signal */
-	if (siginfo->si_signo != SIGCHLD)
-		logger_log (self->_log, CRITICAL, "Expected signal %d, received %d", 
-					SIGCHLD, siginfo->si_signo);
-
-	/* Get Process which emitted the signal */
-	p = pslist_get_ps_by_pid (self->_pslist, siginfo->si_pid);
-	if (p == NULL)
-		logger_log (self->_log, CRITICAL,
-					"daemon_wait_process:Can't find Process with pid %d", siginfo->si_pid);
-
-	/* "Wait" on the process */
-	if (process_wait (p, siginfo))
-		logger_log (self->_log, CRITICAL, "daemon_wait_process:process_wait", 
-					siginfo->si_pid);
-
-	logger_log (self->_log, DEBUG, "daemon_wait_process:waited on process (%d)", 
-			siginfo->si_pid);
-
-	/* Unblock signals */
-	_daemon_unblock_signals (self);
-}
-
 /* Private methods */
 
 /*
@@ -484,6 +378,130 @@ static int _daemon_daemonize (Daemon * self)
 
 	return 0;
 }
+
+/*
+ * Run processes in WAITING state if any CPUs available
+ * args:   Daemon
+ * return: void
+ */
+static void _daemon_run_processes (Daemon * self)
+{
+	int n_running = 0;		/* number of Processes currently running */
+	int n_waiting = 0;		/* number of Processes waiting */
+	int * l_waiting = NULL;	/* array of Processes waiting */
+	Process * p = NULL;
+	char * s;
+	int i;
+
+	/* Block signals */
+	_daemon_block_signals (self);
+
+	/* Check if the number of running processes is less than 
+	 * the number of CPUs available */
+	n_running = pslist_get_nps (self->_pslist, RUNNING, NULL);
+	if (n_running >= self->_ncpus) {
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
+		return ;
+	}
+
+	/* Get the number of processes waiting */
+	n_waiting = pslist_get_nps (self->_pslist, WAITING, NULL);
+
+
+	/* We only check this as the following malloc(0) would
+	 * fail when running with -lefence, FIXME: this is not the case with
+	 * malloc0 */
+	if (n_waiting == 0)
+	{
+		/* No processes are currently waiting */
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
+		return ;
+	}
+
+	/* Get the list of processes waiting */
+	l_waiting  = malloc0 (n_waiting * sizeof (int));
+	if (l_waiting == NULL) {
+		logger_log (self->_log, WARNING, "_daemon_run_processes:malloc0");
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
+		return ;
+	}
+
+	pslist_get_nps (self->_pslist, WAITING, l_waiting);
+
+	/* FIXME: string from process_str should be freed */
+	/* Start as many Processes as we have free CPUs */
+	for (i = 0; (i < n_waiting) && (n_running <= self->_ncpus); i++)
+	{
+		p = pslist_get_ps (self->_pslist, l_waiting[i]);
+		if (process_run (p) == 0) {
+			s = process_str (p);
+			logger_log (self->_log, DEBUG, "Running Process (%d): '%s'", p->uid, s);
+			free (s);
+			n_running++;
+		} else {
+			s = process_str (p);
+			logger_log (self->_log, WARNING, "Failed to run Process: '%s'", s);
+			free (s);
+		}
+
+	}
+
+	free (l_waiting);
+
+	/* Unblock signals */
+	_daemon_unblock_signals (self);
+}
+
+/*
+ * Wait for terminated processes 
+ * args:   Daemon, siginfo_t from signal
+ * return: void
+ */
+static void _daemon_wait_processes (Daemon * self)
+{
+	siginfo_t * siginfo;
+	Process * p;
+	int ret;
+
+	siginfo = malloc0 (sizeof (siginfo_t));
+	if (siginfo == NULL)
+		logger_log (self->_log, CRITICAL, "_daemon_wait_processes:malloc0");
+
+	for (;;)
+	{
+		/* Look for waiting processes */
+		ret = waitid (P_PGID, getpgrp (), siginfo, WEXITED | WSTOPPED | WNOHANG);
+
+		if (ret == -1) {
+			if (errno == ECHILD) /* No child processes */
+				break;
+			else
+				logger_log (self->_log, CRITICAL, "_daemon_wait_processes:waitid");
+		}
+
+		if (siginfo->si_pid == 0)	/* No child to wait for */
+			break ;
+
+		/* Get the Process with corresponding pid */
+		p = pslist_get_ps_by_pid (self->_pslist, siginfo->si_pid);
+		if (p == NULL)
+			logger_log (self->_log, CRITICAL,
+						"_daemon_wait_processes:Can't find Process with pid %d",
+						siginfo->si_pid);
+
+		/* "Wait" on the process */
+		if (process_wait (p, siginfo))
+			logger_log (self->_log, CRITICAL, "_daemon_wait_processes:process_wait", 
+						siginfo->si_pid);
+
+		logger_log (self->_log, DEBUG, "_daemon_wait_processes:waited on process (%d)",
+					siginfo->si_pid);
+	}
+}
+
 
 /*
  * Parse line and proceed accordingly
@@ -690,7 +708,7 @@ static MessageType _daemon_action_add (Daemon * self, char ** argv, char ** mess
 	free (s);
 
 	/* Start processes if any CPUs are available */
-	daemon_run_processes (self);
+	_daemon_run_processes (self);
 
 	return OK;
 }
