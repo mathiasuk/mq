@@ -164,7 +164,7 @@ int process_run (Process * self)
 /* 
  * "Wait" on the process
  * args:   Process, siginfo_t from signal
- * return: 0 on sucess
+ * return: 0 on success
  */
 int process_wait (Process * self, siginfo_t * siginfo)
 {
@@ -201,7 +201,7 @@ int process_wait (Process * self, siginfo_t * siginfo)
 /*
  * Terminate the process
  * args:   Process
- * return: 0 on sucess, 1 on error
+ * return: 0 on success, 1 on error
  */
 int process_terminate (Process * self)
 {
@@ -215,7 +215,7 @@ int process_terminate (Process * self)
 /*
  * Kill the process
  * args:   Process
- * return: 0 on sucess, 1 on error
+ * return: 0 on success, 1 on error
  */
 int process_kill (Process * self)
 {
