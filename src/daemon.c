@@ -182,6 +182,9 @@ void daemon_run (Daemon * self)
 		/* Wait for any processes */
 		_daemon_wait_processes (self);
 
+		/* Run processes if any slots available */
+		_daemon_run_processes (self);
+
 		if (n_events == 0) {
 			/* Waited for TIMEOUT ms */
 		}
@@ -408,7 +411,6 @@ static void _daemon_run_processes (Daemon * self)
 	/* Get the number of processes waiting */
 	n_waiting = pslist_get_nps (self->_pslist, WAITING, NULL);
 
-
 	/* We only check this as the following malloc(0) would
 	 * fail when running with -lefence, FIXME: this is not the case with
 	 * malloc0 */
@@ -431,9 +433,8 @@ static void _daemon_run_processes (Daemon * self)
 
 	pslist_get_nps (self->_pslist, WAITING, l_waiting);
 
-	/* FIXME: string from process_str should be freed */
 	/* Start as many Processes as we have free CPUs */
-	for (i = 0; (i < n_waiting) && (n_running <= self->_ncpus); i++)
+	for (i = 0; (i < n_waiting) && (n_running < self->_ncpus); i++)
 	{
 		p = pslist_get_ps (self->_pslist, l_waiting[i]);
 		if (process_run (p) == 0) {
