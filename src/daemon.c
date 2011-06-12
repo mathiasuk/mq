@@ -841,7 +841,8 @@ static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** mes
 static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char ** message)
 {
 	Process * p;
-	int uid;
+	int * l_running = NULL;	/* array of Processes running */
+	int uid, n_running, i;
 
 	/* Block signals */
 	_daemon_block_signals (self);
@@ -860,7 +861,29 @@ static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char *
 	/* Argument can be "all" or UID */
 	if (strcmp (*argv, "all") == 0)
 	{
-		;
+		logger_log (self->_log, DEBUG, "Terminate all processes");
+		/* Get number of Processes running */
+		n_running = pslist_get_nps (self->_pslist, RUNNING, NULL);
+
+		/* Get list of Processes running */
+		l_running  = malloc0 (n_running * sizeof (int));
+		if (l_running == NULL)
+			logger_log (self->_log, CRITICAL, "_daemon_action_terminate:malloc0");
+		pslist_get_nps (self->_pslist, RUNNING, l_running);
+
+		/* Terminate each running process */
+		for (i = 0; i < n_running; i++)
+		{
+			p = pslist_get_ps (self->_pslist, l_running[i]);
+			if (p == NULL)
+				logger_log (self->_log, CRITICAL,
+							"_daemon_action_terminate:pslist_get_ps");
+			if (process_terminate (p))
+				logger_log (self->_log, CRITICAL, 
+							"_daemon_action_terminate:process_terminate");
+			logger_log (self->_log, DEBUG, 
+						"Terminating process %d", process_get_pid (p));
+		}
 	}
 	else
 	{
