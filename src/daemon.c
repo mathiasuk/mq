@@ -54,7 +54,6 @@ static MessageType _daemon_action_help (Daemon * self, char ** argv, char ** mes
 static int _daemon_kill_pg (Daemon * self, int sig);
 
 /* Signal handler */
-void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr);
 void sigterm_handler (int signum);
 
 /* 
@@ -95,6 +94,7 @@ Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path)
 		logger_log (daemon->_log, CRITICAL,
 					"daemon_new: Can't find the number of CPUs");
 	logger_log (daemon->_log, DEBUG, "Found %d CPU(s)", daemon->_ncpus);
+	daemon->_ncpus = 50;	/* FIXME: remove */
 
 	/* Unlink the socket's path to prevent EINVAL if the file already exist */
     if (unlink (daemon->_sock_path) == -1) {
@@ -427,7 +427,7 @@ void daemon_wait_process (Daemon * self, siginfo_t * siginfo)
  */
 static int _daemon_daemonize (Daemon * self)
 {
-	struct sigaction sigchld_action, sigterm_action;
+	struct sigaction sigterm_action;
 	FILE * pid_file;
 	pid_t pid;
 
@@ -455,31 +455,15 @@ static int _daemon_daemonize (Daemon * self)
 	if (chdir ("/") == -1)
 		logger_log (self->_log, CRITICAL, "_daemon_daemonize:chdir");
 
-	/* Initialise the signal masks for SIGCHLD */
-	if (sigemptyset (&self->_blk_chld) == -1)
+	/* Initialise the signal mask */
+	if (sigemptyset (&self->_sig_mask) == -1)
 		logger_log (self->_log, CRITICAL, "_daemon_daemonize:sigemptyset");
-	if (sigaddset (&self->_blk_chld, SIGCHLD) == -1)
+	if (sigaddset (&self->_sig_mask, SIGTERM) == -1)
 		logger_log (self->_log, CRITICAL, "_daemon_daemonize:sigaddset");
-
-	/* Initialise the signal masks for SIGTERM */
-	if (sigemptyset (&self->_blk_term) == -1)
-		logger_log (self->_log, CRITICAL, "_daemon_daemonize:sigemptyset");
-	if (sigaddset (&self->_blk_term, SIGTERM) == -1)
-		logger_log (self->_log, CRITICAL, "_daemon_daemonize:sigaddset");
-
-	/* Attach the signal handler for SIGCHLD */
-	sigchld_action.sa_sigaction = sigchld_handler;
-	sigemptyset (&sigchld_action.sa_mask);
-	/* We use SA_NOCLDWAIT as sa_sigaction will give us all the info regarding
-	 * the Process without waiting for it */
-	sigchld_action.sa_flags = SA_SIGINFO | SA_NOCLDWAIT;
-	if (sigaction (SIGCHLD, &sigchld_action, NULL) == -1)
-		logger_log (self->_log, CRITICAL, "_daemon_daemonize:sigaction");
 
 	/* Attach the signal handler for SIGTERM */
 	sigterm_action.sa_handler = sigterm_handler;
 	sigemptyset (&sigterm_action.sa_mask);
-	sigchld_action.sa_flags = 0;
 	if (sigaction (SIGTERM, &sigterm_action, NULL) == -1)
 		logger_log (self->_log, CRITICAL, "_daemon_daemonize:sigaction");
 
@@ -608,9 +592,7 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
  */
 static void _daemon_block_signals (Daemon * self)
 {
-	if (sigprocmask (SIG_BLOCK, &self->_blk_chld, NULL) == -1)
-		logger_log (self->_log, CRITICAL, "_daemon_block_signals:sigprocmask");
-	if (sigprocmask (SIG_BLOCK, &self->_blk_term, NULL) == -1)
+	if (sigprocmask (SIG_BLOCK, &self->_sig_mask, NULL) == -1)
 		logger_log (self->_log, CRITICAL, "_daemon_block_signals:sigprocmask");
 }
 
@@ -621,9 +603,7 @@ static void _daemon_block_signals (Daemon * self)
  */
 static void _daemon_unblock_signals (Daemon * self)
 {
-	if (sigprocmask (SIG_UNBLOCK, &self->_blk_chld, NULL) == -1)
-		logger_log (self->_log, CRITICAL, "_daemon_unblock_signals:sigprocmask");
-	if (sigprocmask (SIG_UNBLOCK, &self->_blk_term, NULL) == -1)
+	if (sigprocmask (SIG_UNBLOCK, &self->_sig_mask, NULL) == -1)
 		logger_log (self->_log, CRITICAL, "_daemon_unblock_signals:sigprocmask");
 }
 
@@ -862,10 +842,7 @@ static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char *
 	/* Argument can be "all" or UID */
 	if (strcmp (*argv, "all") == 0)
 	{
-		/* FIXME: this kills the daemon */
-		if (_daemon_terminate_all (self))
-			logger_log (self->_log, CRITICAL,
-						"_daemon_action_terminate:_daemon_terminate_all");
+		;
 	}
 	else
 	{
@@ -1023,14 +1000,6 @@ static int _daemon_kill_pg (Daemon * self, int sig)
 
 
 /* Signal handlers */
-void sigchld_handler (int signum, siginfo_t * siginfo, void * ptr)
-{
-	extern Daemon * d;
-	logger_log (d->_log, DEBUG, "caught SIGCHLD");
-	daemon_wait_process (d, siginfo);
-	daemon_run_processes (d);
-}
-
 void sigterm_handler (int signum)
 {
 	extern Daemon * d;

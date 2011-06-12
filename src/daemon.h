@@ -42,8 +42,7 @@ struct _Daemon
 							   signals are blocked with _daemon_block_signals */
 	MessageList * _mlist;	/* List of messages to be sent to sockets */
 	long _ncpus;			/* Number of available CPUs */
-	sigset_t _blk_chld;		/* Block SIGCHLD */
-	sigset_t _blk_term;		/* Block SIGTERM */
+	sigset_t _sig_mask;		/* Mask to block signals*/
 };
 
 Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path);
