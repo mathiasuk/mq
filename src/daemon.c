@@ -51,8 +51,7 @@ static int _daemon_read_socket (Daemon * self, int sock);
 static MessageType _daemon_action_add (Daemon * self, char ** argv, char ** message);
 static MessageType _daemon_action_list (Daemon * self, char ** message);
 static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** message);
-static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char ** message);
-static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** message);
+static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** message, int sig);
 static MessageType _daemon_action_help (Daemon * self, char ** argv, char ** message);
 static int _daemon_kill_pg (Daemon * self, int sig);
 
@@ -570,7 +569,7 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 	}
 	else if (strcmp (action, "terminate") == 0 || strcmp (action, "term") == 0)
 	{
-		return _daemon_action_terminate (self, argv, message);
+		return _daemon_action_kill (self, argv, message, SIGTERM);
 	}
 	else if (strcmp (action, "help") == 0 || strcmp (action, "usage") == 0)
 	{
@@ -578,7 +577,7 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 	}
 	else if (strcmp (action, "kill") == 0)
 	{
-		return _daemon_action_kill (self, argv, message);
+		return _daemon_action_kill (self, argv, message, SIGKILL);
 	}
 	else if (strcmp (action, "exit") == 0)
 	{
@@ -839,7 +838,7 @@ static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** mes
  * args:   Daemon, additional arguments, pointer to return message string
  * return: MessageType
  */
-static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char ** message)
+static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** message, int sig)
 {
 	Process * p;
 	int * l_running = NULL;	/* array of Processes running */
@@ -850,9 +849,13 @@ static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char *
 
 	if (*argv == NULL)
 	{
-		*message = strdup ("Expected: 'term[inate] UID'\n");
+		if (sig == SIGTERM)
+			*message = strdup ("Expected: 'term[inate] UID'\n");
+		else if (sig == SIGKILL)
+			*message = strdup ("Expected: 'kill UID'\n");
+
 		if (*message == NULL)
-			logger_log (self->_log, CRITICAL, "_daemon_action_terminate:strdup");
+			logger_log (self->_log, CRITICAL, "_daemon_action_kill:strdup");
 
 		/* Unblock signals */
 		_daemon_unblock_signals (self);
@@ -862,14 +865,13 @@ static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char *
 	/* Argument can be "all" or UID */
 	if (strcmp (*argv, "all") == 0)
 	{
-		logger_log (self->_log, DEBUG, "Terminate all processes");
 		/* Get number of Processes running */
 		n_running = pslist_get_nps (self->_pslist, RUNNING, NULL);
 
 		/* Get list of Processes running */
 		l_running  = malloc0 (n_running * sizeof (int));
 		if (l_running == NULL)
-			logger_log (self->_log, CRITICAL, "_daemon_action_terminate:malloc0");
+			logger_log (self->_log, CRITICAL, "_daemon_action_kill:malloc0");
 		pslist_get_nps (self->_pslist, RUNNING, l_running);
 
 		/* Terminate each running process */
@@ -878,10 +880,17 @@ static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char *
 			p = pslist_get_ps (self->_pslist, l_running[i]);
 			if (p == NULL)
 				logger_log (self->_log, CRITICAL,
-							"_daemon_action_terminate:pslist_get_ps");
-			if (process_terminate (p))
-				logger_log (self->_log, CRITICAL, 
-							"_daemon_action_terminate:process_terminate");
+							"_daemon_action_kill:pslist_get_ps");
+			if (sig == SIGTERM) {
+				if (process_terminate (p))
+					logger_log (self->_log, CRITICAL, 
+							"_daemon_action_kill:process_terminate");
+			} else if (sig == SIGKILL) {
+				if (process_kill (p))
+					logger_log (self->_log, CRITICAL, 
+							"_daemon_action_kill:process_terminate");
+			}
+
 			logger_log (self->_log, DEBUG, 
 						"Terminating process %d", process_get_pid (p));
 		}
@@ -892,10 +901,14 @@ static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char *
 		errno = 0;
 		uid = strtol (*argv, NULL, 10);
 		if (errno != 0) {
-			*message = strdup ("Expected: 'term[inate] UID'\n");
+			if (sig == SIGTERM)
+				*message = strdup ("Expected: 'term[inate] UID'\n");
+			else if (sig == SIGKILL)
+				*message = strdup ("Expected: 'kill UID'\n");
+
 			if (*message == NULL)
 				logger_log (self->_log, CRITICAL, 
-							"_daemon_action_terminate:strdup");
+							"_daemon_action_kill:strdup");
 
 			/* Unblock signals */
 			_daemon_unblock_signals (self);
@@ -910,77 +923,26 @@ static MessageType _daemon_action_terminate (Daemon * self, char ** argv, char *
 			*message = msprintf ("Unknown UID '%d'\n", uid);
 			if (*message == NULL)
 				logger_log (self->_log, CRITICAL,
-							"_daemon_action_terminate:msprintf");
+							"_daemon_action_kill:msprintf");
 
 			/* Unblock signals */
 			_daemon_unblock_signals (self);
 			return KO;
 		}
 
-		if (process_terminate (p))
-			logger_log (self->_log, CRITICAL, 
-						"_daemon_action_terminate:process_terminate");
+		if (sig == SIGTERM) {
+			if (process_terminate (p))
+				logger_log (self->_log, CRITICAL, 
+							"_daemon_action_kill:process_terminate");
+		} else if (sig == SIGKILL) {
+			if (process_kill (p))
+				logger_log (self->_log, CRITICAL, 
+							"_daemon_action_kill:process_kill");
+		}
+
 		logger_log (self->_log, DEBUG, 
 					"Terminating process %d", process_get_pid (p));
 	}
-
-	/* Unblock signals */
-	_daemon_unblock_signals (self);
-
-	return OK;
-}
-
-/* 
- * Kill given process
- * args:   Daemon, additional arguments, pointer to return message string
- * return: MessageType
- */
-static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** message)
-{
-	Process * p;
-	int uid;
-
-	/* Block signals */
-	_daemon_block_signals (self);
-
-	if (*argv == NULL)
-	{
-		*message = strdup ("Expected: 'kill UID'\n");
-		if (*message == NULL)
-			logger_log (self->_log, CRITICAL, "_daemon_action_kill:strdup");
-
-		/* Unblock signals */
-		_daemon_unblock_signals (self);
-		return KO;
-	}
-
-	/* Convert the argument to int */
-	errno = 0;
-	uid = strtol (*argv, NULL, 10);
-	if (errno != 0) {
-		*message = strdup ("Expected: 'kill UID'\n");
-		if (*message == NULL)
-			logger_log (self->_log, CRITICAL, "_daemon_action_kill:strdup");
-
-		/* Unblock signals */
-		_daemon_unblock_signals (self);
-		return KO;
-	}
-
-	/* Get the process with given uid */
-	p = pslist_get_ps_by_uid (self->_pslist, uid);
-
-	if (p == NULL)
-	{
-		*message = msprintf ("Unknown UID '%d'\n", uid);
-		if (*message == NULL)
-			logger_log (self->_log, CRITICAL, "_daemon_action_kill:msprintf");
-		return KO;
-	}
-
-	if (process_kill (p))
-		logger_log (self->_log, CRITICAL, "_daemon_action_kill:process_kill");
-	logger_log (self->_log, DEBUG, "Killing process %d", process_get_pid (p));
 
 	/* Unblock signals */
 	_daemon_unblock_signals (self);
