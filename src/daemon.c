@@ -881,15 +881,9 @@ static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** mes
 			if (p == NULL)
 				logger_log (self->_log, CRITICAL,
 							"_daemon_action_kill:pslist_get_ps");
-			if (sig == SIGTERM) {
-				if (process_terminate (p))
-					logger_log (self->_log, CRITICAL, 
-							"_daemon_action_kill:process_terminate");
-			} else if (sig == SIGKILL) {
-				if (process_kill (p))
-					logger_log (self->_log, CRITICAL, 
-							"_daemon_action_kill:process_terminate");
-			}
+			if (process_kill (p, sig))
+				logger_log (self->_log, CRITICAL, 
+						"_daemon_action_kill:process_terminate");
 
 			logger_log (self->_log, DEBUG, 
 						"Terminating process %d", process_get_pid (p));
@@ -930,15 +924,9 @@ static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** mes
 			return KO;
 		}
 
-		if (sig == SIGTERM) {
-			if (process_terminate (p))
-				logger_log (self->_log, CRITICAL, 
-							"_daemon_action_kill:process_terminate");
-		} else if (sig == SIGKILL) {
-			if (process_kill (p))
-				logger_log (self->_log, CRITICAL, 
-							"_daemon_action_kill:process_kill");
-		}
+		if (process_kill (p, sig))
+			logger_log (self->_log, CRITICAL, 
+						"_daemon_action_kill:process_kill");
 
 		logger_log (self->_log, DEBUG, 
 					"Terminating process %d", process_get_pid (p));

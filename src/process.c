@@ -199,31 +199,17 @@ int process_wait (Process * self, siginfo_t * siginfo)
 }
 
 /*
- * Terminate the process
+ * Send the given signal to the process
  * args:   Process
  * return: 0 on success, 1 on error
  */
-int process_terminate (Process * self)
-{
-	/* Terminate only makes sense if the process is currently running */
-	if (self->_state != RUNNING)
-		return 0;
-
-	return _process_send_signal (self, SIGTERM);
-}
-
-/*
- * Kill the process
- * args:   Process
- * return: 0 on success, 1 on error
- */
-int process_kill (Process * self)
+int process_kill (Process * self, int sig)
 {
 	/* Kill only makes sense if the process is currently running */
 	if (self->_state != RUNNING)
 		return 0;
 
-	return _process_send_signal (self, SIGKILL);
+	return _process_send_signal (self, sig);
 }
 
 /*
