@@ -95,7 +95,7 @@ int list_remove (List * self, void * item)
 		return 1;
 
 	/* Left shift all items after our item, effectively removing it */
-	for (j = i; j < self->_len - 2; j ++)
+	for (j = i; j < self->_len - 1; j ++)
 		self->_list[j] = self->_list[j + 1];
 
 	/* If we have more than CHUNK_SIZE free elements we compress the list*/
