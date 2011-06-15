@@ -48,6 +48,8 @@ struct _Process
 	pid_t _pid;
 	int uid;		/* Unique process ID */
 	int _ret;		/* Return value */
+	short int to_remove;	/* Indicate that the process should be 
+							   removed once done running */
 };
 
 Process * process_new (char ** argv);

@@ -50,6 +50,7 @@ Process * process_new (char ** argv)
 	process->_pid = 0;
 	process->uid = id;
 	process->_ret = 0;
+	process->to_remove = 0;
 
 	/* Increment the id */
 	id++;
