@@ -72,6 +72,7 @@ void process_del (Process * self)
 		free (argv++);
 
 	free (self->_argv);
+	free (self);
 }
 
 /* 
