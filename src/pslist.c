@@ -43,6 +43,16 @@ int pslist_append (PsList * self, Process * process)
 	return list_append (self, process);
 }
 
+/*
+ * Remove Process from the list
+ * args:   PsList, pointer to Process
+ * return: 0 on sucess, 1 if Process not found, -1 on error
+ */
+int pslist_remove (List * self, Process * process)
+{
+	return list_remove (self, process);
+}
+
 /* 
  * Wrapper around list_get_item ()
  * args:   Pslist, index
