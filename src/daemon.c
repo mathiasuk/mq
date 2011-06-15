@@ -51,6 +51,7 @@ static int _daemon_read_socket (Daemon * self, int sock);
 static MessageType _daemon_action_add (Daemon * self, char ** argv, char ** message);
 static MessageType _daemon_action_list (Daemon * self, char ** message);
 static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** message);
+static MessageType _daemon_action_remove (Daemon * self, char ** argv, char ** message);
 static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** message, int sig);
 static MessageType _daemon_action_help (Daemon * self, char ** argv, char ** message);
 static int _daemon_kill_pg (Daemon * self, int sig);
@@ -567,6 +568,10 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 	{
 		return _daemon_action_move (self, argv, message);
 	}
+	else if (strcmp (action, "remove") == 0 || strcmp (action, "rm") == 0)
+	{
+		return _daemon_action_remove (self, argv, message);
+	}
 	else if (strcmp (action, "terminate") == 0 || strcmp (action, "term") == 0)
 	{
 		return _daemon_action_kill (self, argv, message, SIGTERM);
@@ -776,7 +781,7 @@ static MessageType _daemon_action_list (Daemon * self, char ** message)
 }
 
 /* 
- * Build list of all processes as string
+ * Move Process in PsList
  * args:   Daemon, additional arguments, pointer to return message string
  * return: MessageType
  */
@@ -833,8 +838,90 @@ static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** mes
 	return OK;
 }
 
+/*
+ * Remove a Process from PsList
+ * args:   Daemon, additional arguments, pointer to return message string
+ * return: MessageType
+ */
+static MessageType _daemon_action_remove (Daemon * self, char ** argv, char ** message)
+{
+	Process * p;
+	int uid, ret;
+
+	/* Block signals */
+	_daemon_block_signals (self);
+
+	if (*argv == NULL)
+	{
+		*message = strdup ("Expected: 'remove|rm UID'\n");
+
+		if (*message == NULL)
+			logger_log (self->_log, CRITICAL, "_daemon_action_remove:strdup");
+
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
+		return KO;
+	}
+
+	/* Convert the argument to int */
+	errno = 0;
+	uid = strtol (*argv, NULL, 10);
+	if (errno != 0) {
+		*message = strdup ("Expected: 'remove|rm UID'\n");
+
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
+		return KO;
+	}
+
+	/* Get the process with given uid */
+	p = pslist_get_ps_by_uid (self->_pslist, uid);
+
+	if (p == NULL)
+	{
+		*message = msprintf ("Unknown UID '%d'\n", uid);
+		if (*message == NULL)
+			logger_log (self->_log, CRITICAL,
+						"_daemon_action_remove:msprintf");
+
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
+		return KO;
+	}
+
+	/* Check if the Process is running */
+	if (process_get_state (p) == RUNNING)
+	{
+		/* Sent a SIGTERM to the process */
+		if (process_kill (p, SIGTERM))
+			logger_log (self->_log, CRITICAL, 
+					"_daemon_action_remove:process_kill");
+		logger_log (self->_log, DEBUG, 
+				"Sent SIGTERM to %d before removing", uid);
+
+		/* Mark the process so that it's removed when done running */
+		p->to_remove = 1;
+	}
+	else
+	{
+		/* Remove the Process from the PsList */
+		ret = pslist_remove (self->_pslist, p);
+		if (ret == -1)
+			logger_log (self->_log, CRITICAL, 
+					"_daemon_action_remove:pslist_remove");
+		if (ret == 1)
+			logger_log (self->_log, CRITICAL, 
+					"_daemon_action_remove:pslist_remove:Can't find Process");
+	}
+
+	/* Unblock signals */
+	_daemon_unblock_signals (self);
+
+	return OK;
+}
+
 /* 
- * Terminate given process
+ * Terminate or Kill given process
  * args:   Daemon, additional arguments, pointer to return message string
  * return: MessageType
  */
