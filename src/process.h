@@ -51,6 +51,7 @@ struct _Process
 };
 
 Process * process_new (char ** argv);
+void process_del (Process * self);
 char * process_str (Process * self);
 int process_run (Process * self);
 int process_wait (Process * self, siginfo_t * siginfo);

@@ -57,6 +57,22 @@ Process * process_new (char ** argv)
 	return process;
 }
 
+/*
+ * Delete and free a Process
+ * args:   Message
+ * return: void
+ */
+void process_del (Process * self)
+{
+	char ** argv = self->_argv;
+
+	/* Free each arg in argv */
+	while (argv != NULL)
+		free (argv++);
+
+	free (self->_argv);
+}
+
 /* 
  * Generate a string representation of the process
  * args:   self
