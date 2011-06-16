@@ -438,6 +438,11 @@ static void _daemon_run_processes (Daemon * self)
 	for (i = 0; (i < n_waiting) && (n_running < self->_ncpus); i++)
 	{
 		p = pslist_get_ps (self->_pslist, l_waiting[i]);
+
+		/* Skip paused Processes */
+		if (p->is_paused)
+			continue;
+
 		if (process_run (p) == 0) {
 			s = process_str (p);
 			logger_log (self->_log, DEBUG, "Running Process (%d): '%s'", p->uid, s);
