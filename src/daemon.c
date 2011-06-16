@@ -70,7 +70,7 @@ Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path)
 	struct epoll_event event;
 	int len;
 
-	if (!daemon)
+	if (daemon == NULL)
 		return NULL;
 
 	/* Build the socket's path */
@@ -555,7 +555,7 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 	/* Convert the line to an array of char *, we add one slot to
 	 * NULL terminate the array */
 	argv = malloc0 (sizeof (char *) * (argc + 1));
-	if (!argv)
+	if (argv == NULL)
 		logger_log (self->_log, CRITICAL, "_daemon_parse_line:malloc0");
 	for (i = 0; i < argc; i++) {
 		argv[i] = strdup (line);
@@ -570,8 +570,12 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 	/* Parse the action (first argument), this should always exist */
 	action = argv[0];
 
-	/* Move to the next argument */
-	argv++;
+	/* Resize argv to remove the action */
+	for (i = 0; i < argc; i++)
+		argv[i] = argv[i + 1];
+	argv = realloc (argv, sizeof (char *) * (argc));
+	if (argv == NULL)
+		logger_log (self->_log, CRITICAL, "_daemon_parse_line:realloc");
 
 	if (strcmp (action, "add") == 0)
 	{
