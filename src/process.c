@@ -65,11 +65,11 @@ Process * process_new (char ** argv)
  */
 void process_del (Process * self)
 {
-	char ** argv = self->_argv;
+	int i;
 
 	/* Free each arg in argv */
-	while (argv != NULL)
-		free (argv++);
+	for (i = 0; self->_argv[i] != NULL; i++)
+		free (self->_argv[i]);
 
 	free (self->_argv);
 	free (self);

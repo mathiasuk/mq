@@ -500,6 +500,23 @@ static void _daemon_wait_processes (Daemon * self)
 
 		logger_log (self->_log, DEBUG, "_daemon_wait_processes:waited on process (%d)",
 					siginfo->si_pid);
+
+		/* Remove the process if necessary (ie: user sent 
+		 * a "remove" command) */
+		if (p->to_remove)
+		{
+			/* Remove the Process from the PsList */
+			ret = pslist_remove (self->_pslist, p);
+			if (ret == -1)
+				logger_log (self->_log, CRITICAL, 
+						"_daemon_action_remove:pslist_remove");
+			if (ret == 1)
+				logger_log (self->_log, CRITICAL, 
+						"_daemon_action_remove:pslist_remove:Can't find Process");
+
+			/* Free the Process */
+			process_del (p);
+		}
 	}
 }
 
@@ -912,6 +929,9 @@ static MessageType _daemon_action_remove (Daemon * self, char ** argv, char ** m
 		if (ret == 1)
 			logger_log (self->_log, CRITICAL, 
 					"_daemon_action_remove:pslist_remove:Can't find Process");
+
+		/* Free the Process */
+		process_del (p);
 	}
 
 	/* Unblock signals */
