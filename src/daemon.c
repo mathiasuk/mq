@@ -51,6 +51,7 @@ static int _daemon_read_socket (Daemon * self, int sock);
 static MessageType _daemon_action_add (Daemon * self, char ** argv, char ** message);
 static MessageType _daemon_action_list (Daemon * self, char ** message);
 static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** message);
+static MessageType _daemon_action_pause (Daemon * self, char ** argv, char ** message);
 static MessageType _daemon_action_remove (Daemon * self, char ** argv, char ** message);
 static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** message, int sig);
 static MessageType _daemon_action_help (Daemon * self, char ** argv, char ** message);
@@ -509,10 +510,10 @@ static void _daemon_wait_processes (Daemon * self)
 			ret = pslist_remove (self->_pslist, p);
 			if (ret == -1)
 				logger_log (self->_log, CRITICAL, 
-						"_daemon_action_remove:pslist_remove");
+						"_daemon_wait_processes:pslist_remove");
 			if (ret == 1)
 				logger_log (self->_log, CRITICAL, 
-						"_daemon_action_remove:pslist_remove:Can't find Process");
+						"_daemon_wait_processes:pslist_remove:Can't find Process");
 
 			/* Free the Process */
 			process_del (p);
@@ -588,6 +589,10 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 	else if (strcmp (action, "move") == 0 || strcmp (action, "mv") == 0)
 	{
 		return _daemon_action_move (self, argv, message);
+	}
+	else if (strcmp (action, "pause") == 0)
+	{
+		return _daemon_action_pause (self, argv, message);
 	}
 	else if (strcmp (action, "remove") == 0 || strcmp (action, "rm") == 0)
 	{
@@ -858,6 +863,67 @@ static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** mes
 
 	return OK;
 }
+
+/*
+ * Pause a Process from PsList
+ * args:   Daemon, additional arguments, pointer to return message string
+ * return: MessageType
+ */
+static MessageType _daemon_action_pause (Daemon * self, char ** argv, char ** message)
+{
+	Process * p;
+	int uid;
+
+	/* Block signals */
+	_daemon_block_signals (self);
+
+	if (*argv == NULL)
+	{
+		*message = strdup ("Expected: 'pause UID'\n");
+
+		if (*message == NULL)
+			logger_log (self->_log, CRITICAL, "_daemon_action_pause:strdup");
+
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
+		return KO;
+	}
+
+	/* Convert the argument to int */
+	errno = 0;
+	uid = strtol (*argv, NULL, 10);
+	if (errno != 0) {
+		*message = strdup ("Expected: 'pause UID'\n");
+
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
+		return KO;
+	}
+
+	/* Get the process with given uid */
+	p = pslist_get_ps_by_uid (self->_pslist, uid);
+
+	if (p == NULL)
+	{
+		*message = msprintf ("Unknown UID '%d'\n", uid);
+		if (*message == NULL)
+			logger_log (self->_log, CRITICAL,
+						"_daemon_action_pause:msprintf");
+
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
+		return KO;
+	}
+
+	if (process_pause (p))
+		logger_log (self->_log, CRITICAL, "_daemon_action_pause:process_pause");
+
+	/* Unblock signals */
+	_daemon_unblock_signals (self);
+
+	return OK;
+}
+
 
 /*
  * Remove a Process from PsList
