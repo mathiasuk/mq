@@ -51,6 +51,7 @@ Process * process_new (char ** argv)
 	process->uid = id;
 	process->_ret = 0;
 	process->to_remove = 0;
+	process->is_paused = 0;
 
 	/* Increment the id */
 	id++;
@@ -231,6 +232,34 @@ int process_kill (Process * self, int sig)
 }
 
 /*
+ * Pause the Process
+ * args:   Process
+ * return: 0 on success, 1 on error
+ */
+int process_pause (Process * self)
+{
+	self->is_paused = 1;
+
+	/* Send SIGSTOP to the Process if it's running */
+	if (self->_state == RUNNING)
+		return process_kill (self, SIGSTOP);
+
+	return 0;
+}
+
+/*
+ * Resume the Process
+ * args:   Process
+ * return: 0 on success, 1 on error
+ */
+int process_resume (Process * self)
+{
+	self->is_paused = 0;
+
+	return 0;
+}
+
+/*
  * Return the process' state
  * args:   Process
  * return: PsState or -1 on error
@@ -264,24 +293,39 @@ pid_t process_get_pid (Process * self)
  */
 static char * _process_get_state_str (Process * self)
 {
+	char * str = NULL;
+
 	/* Get string for the Process' state */
 	switch (self->_state)
 	{
 		case WAITING:
-			return "W";
+			str = "W";
+			break;
 		case RUNNING:
-			return "R*";
+			str = "R*";
+			break;
 		case EXITED:
-			return "C";		/* COMPLETE */
+			str = "C";		/* COMPLETE */
+			break;
 		case KILLED:
-			return "K";
+			str = "K";
+			break;
 		case DUMPED:
-			return "D";
+			str = "D";
+			break;
 		case STOPPED:
-			return "S";
+			str = "S";
+			break;
 		default:
-			return "?";
+			str = "?";
+			break;
 	}
+
+	if (self->is_paused) {
+		str = msprintf ("(%s)", str);
+	}
+
+	return str;
 }
 
 /* 

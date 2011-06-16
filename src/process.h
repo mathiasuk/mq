@@ -50,6 +50,7 @@ struct _Process
 	int _ret;		/* Return value */
 	short int to_remove;	/* Indicate that the process should be 
 							   removed once done running */
+	short int is_paused;	/* Indicate that the process has been paused */
 };
 
 Process * process_new (char ** argv);
@@ -58,6 +59,8 @@ char * process_str (Process * self);
 int process_run (Process * self);
 int process_wait (Process * self, siginfo_t * siginfo);
 int process_kill (Process * self, int sig);
+int process_pause (Process * self);
+int process_resume (Process * self);
 
 PsState process_get_state (Process * self);
 pid_t process_get_pid (Process * self);
