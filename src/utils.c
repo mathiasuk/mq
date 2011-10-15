@@ -57,6 +57,7 @@ char * msprintf (char * fmt, ...)
 
 	/* Try to allocate enough memory */
 	str = malloc (len + 1);
+	str[len] = '\0';
 	if (str == NULL)
 		return NULL;
 
