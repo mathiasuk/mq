@@ -53,6 +53,7 @@ static MessageType _daemon_action_list (Daemon * self, char ** message);
 static MessageType _daemon_action_move (Daemon * self, char ** argv, char ** message);
 static MessageType _daemon_action_pause (Daemon * self, char ** argv, char ** message);
 static MessageType _daemon_action_remove (Daemon * self, char ** argv, char ** message);
+static MessageType _daemon_action_resume (Daemon * self, char ** argv, char ** message);
 static MessageType _daemon_action_kill (Daemon * self, char ** argv, char ** message, int sig);
 static MessageType _daemon_action_help (Daemon * self, char ** argv, char ** message);
 static int _daemon_kill_pg (Daemon * self, int sig);
@@ -128,6 +129,7 @@ Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path)
 		logger_log (daemon->_log, CRITICAL, "daemon_new:epoll_create");
 
 	/* We want to be notified when there is data to read */
+	bzero (&event, sizeof(struct epoll_event));
 	event.data.fd = daemon->_sock;
 	event.events = EPOLLIN;
 	if (epoll_ctl (daemon->_epfd, EPOLL_CTL_ADD, daemon->_sock, &event) == -1)
@@ -167,6 +169,7 @@ void daemon_run (Daemon * self)
 		return ;	/* In Client */
 	 
 	events = malloc0 (sizeof (struct epoll_event) * MAX_EVENTS);
+
 	if (events == NULL)
 		logger_log (self->_log, CRITICAL, "daemon_run:malloc0");
 
@@ -206,6 +209,7 @@ void daemon_run (Daemon * self)
 					logger_log (self->_log, CRITICAL, "daemon_run:accept");
 
 				/* Add the new socket to our epoll_event */
+				bzero(&event, sizeof (struct epoll_event));
 				event.events = EPOLLIN;
 				event.data.fd = sock;
 				if (epoll_ctl (self->_epfd, EPOLL_CTL_ADD, sock, &event) == -1)
@@ -246,6 +250,7 @@ void daemon_run (Daemon * self)
 					}
 
 					/* Send the message */
+					logger_log (self->_log, DEBUG, "Send message to socket (%s)", message->_content);
 					if (message_send (message))
 						logger_log (self->_log, CRITICAL, "daemon_run:message_send");
 					logger_log (self->_log, DEBUG, "Sent message to socket (%d)",
@@ -362,6 +367,7 @@ static int _daemon_daemonize (Daemon * self)
 	/* Attach the signal handler for SIGTERM */
 	sigterm_action.sa_handler = sigterm_handler;
 	sigemptyset (&sigterm_action.sa_mask);
+	sigterm_action.sa_flags = 0;
 	if (sigaction (SIGTERM, &sigterm_action, NULL) == -1)
 		logger_log (self->_log, CRITICAL, "_daemon_daemonize:sigaction");
 
@@ -524,6 +530,8 @@ static void _daemon_wait_processes (Daemon * self)
 			process_del (p);
 		}
 	}
+
+	free (siginfo);
 }
 
 
@@ -602,6 +610,10 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 	else if (strcmp (action, "remove") == 0 || strcmp (action, "rm") == 0)
 	{
 		return _daemon_action_remove (self, argv, message);
+	}
+	else if (strcmp (action, "resume") == 0)
+	{
+		return _daemon_action_resume (self, argv, message);
 	}
 	else if (strcmp (action, "terminate") == 0 || strcmp (action, "term") == 0)
 	{
@@ -696,6 +708,7 @@ static int _daemon_read_socket (Daemon * self, int sock)
 
 	/* Update the epoll event for _sock to be notified 
 	 * when it's ready to write */
+	bzero (&event, sizeof(struct epoll_event));
 	event.data.fd = sock;
 	event.events = EPOLLOUT;
 	if (epoll_ctl (self->_epfd, EPOLL_CTL_MOD, sock, &event) == -1)
@@ -716,7 +729,7 @@ static int _daemon_read_socket (Daemon * self, int sock)
 static MessageType _daemon_action_add (Daemon * self, char ** argv, char ** message)
 {
 	Process * p;
-	char * s;
+	char * s = NULL;
 
 	/* Check for extra arguments */
 	if (*argv == NULL) {
@@ -925,10 +938,10 @@ static MessageType _daemon_action_pause (Daemon * self, char ** argv, char ** me
 
 	/* Unblock signals */
 	_daemon_unblock_signals (self);
+	logger_log (self->_log, DEBUG, "pause: message:'%s', *argv:'%s', errno:'%d'", message, *argv, errno);
 
 	return OK;
 }
-
 
 /*
  * Remove a Process from PsList
@@ -1014,6 +1027,71 @@ static MessageType _daemon_action_remove (Daemon * self, char ** argv, char ** m
 
 	return OK;
 }
+
+/*
+ * Resume a Process from PsList
+ * args:   Daemon, additional arguments, pointer to return message string
+ * return: MessageType
+ */
+static MessageType _daemon_action_resume (Daemon * self, char ** argv, char ** message)
+{
+	Process * p;
+	int uid;
+
+	/* Block signals */
+	_daemon_block_signals (self);
+
+	if (*argv == NULL)
+	{
+		*message = strdup ("Expected: 'resume UID'\n");
+
+		if (*message == NULL)
+			logger_log (self->_log, CRITICAL, "_daemon_action_resume:strdup");
+
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
+		return KO;
+	}
+	logger_log (self->_log, DEBUG, "message:'%s', *argv:'%s', errno:'%d'", message, *argv, errno);
+
+	/* Convert the argument to int */
+	errno = 0;
+	uid = strtol (*argv, NULL, 10);
+	strtol (*argv, NULL, 10);
+	if (errno != 0) {
+		*message = strdup ("Expected: 'resume UID'\n");
+
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
+		return KO;
+	}
+
+	/* Get the process with given uid */
+	p = pslist_get_ps_by_uid (self->_pslist, uid);
+
+	if (p == NULL)
+	{
+		*message = msprintf ("Unknown UID '%d'\n", uid);
+		if (*message == NULL)
+			logger_log (self->_log, CRITICAL,
+						"_daemon_action_resume:msprintf");
+
+		/* Unblock signals */
+		_daemon_unblock_signals (self);
+		return KO;
+	}
+
+	if (process_resume (p))
+		logger_log (self->_log, CRITICAL, "_daemon_action_resume:process_resume");
+
+	/* TODO: check if process can be started? */
+
+	/* Unblock signals */
+	_daemon_unblock_signals (self);
+
+	return OK;
+}
+
 
 /* 
  * Terminate or Kill given process

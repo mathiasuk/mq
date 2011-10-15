@@ -133,10 +133,10 @@ char * process_str (Process * self)
 
 	/* If the process exited we print the exit code */
 	if (self->_state == EXITED || self->_state == KILLED)
-		ret = msprintf ("%-4d %-3s %-4d %s ", self->uid, state,
+		ret = msprintf ("%-4d %-3s %-4d %s", self->uid, state,
 						self->_ret, command);	/* "4d": STR_MAX_UID_LEN - 1 */
 	else
-		ret = msprintf ("%-4d %-8s %s ", self->uid,
+		ret = msprintf ("%-4d %-8s %s", self->uid,
 						state, command);	/* "4d": STR_MAX_UID_LEN - 1 */
 
 	return ret;
@@ -318,7 +318,6 @@ static char * _process_get_state_str (Process * self)
 			break;
 		default:
 			str = "?";
-			break;
 	}
 
 	if (self->is_paused) {

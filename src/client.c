@@ -43,7 +43,7 @@ static int _client_recv_message (Client * self);
 Client * client_new (void)
 {
 	Client * client = malloc0 (sizeof (Client));
-	char * home;
+	char * home = NULL;
 
 	/* Build the default pidfile's path */
 	if ((home = getenv ("HOME")) == NULL)
@@ -325,6 +325,7 @@ static void _client_send_command (Client * self)
 	/* Send each argument separated by '\0' */
 	for (i = self->_arg_index; i < self->_argc; i++) {
 		arg = self->_argv[i];
+
         if (send (self->_sock, arg, strlen (arg) + 1, 0) == -1) {
             perror ("_client_send_command:send");
             exit (EXIT_FAILURE);

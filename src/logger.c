@@ -178,4 +178,6 @@ static void _logger (Logger * self, const char * prefix, char * fmt, va_list lis
 		perror ("_logger_info:vfprintf");
 		exit (EXIT_FAILURE);
 	}
+
+	free (fmt_full);
 }
