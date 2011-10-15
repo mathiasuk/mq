@@ -370,7 +370,7 @@ static int _client_recv_message (Client * self)
 		for (len = 0; len < LINE_MAX - 1; len++)	/* LINE_MAX - 1 to squeeze a '\0' */
 		{
 			ret = recv (self->_sock, &buf[len], sizeof (char), 0);
-			if (len == -1) {
+			if (ret == -1) {
 				perror ("_client_recv_command:recv");
 				exit (EXIT_FAILURE);
 			}
