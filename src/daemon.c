@@ -546,7 +546,8 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 {
 	char * action;
 	int argc = 0, i;
-	char ** argv;
+	char ** argv, ** p;
+	static MessageType ret = KO;
 
 	/* Set the default return message to NULL */
 	*message = NULL;
@@ -587,68 +588,76 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 	/* Resize argv to remove the action */
 	for (i = 0; i < argc; i++)
 		argv[i] = argv[i + 1];
-	argv = realloc (argv, sizeof (char *) * (argc));
-	if (argv == NULL)
+	/* FIXME: add intermediate variable */
+	p = realloc (argv, sizeof (char *) * argc);
+	if (p == NULL)
 		logger_log (self->_log, CRITICAL, "_daemon_parse_line:realloc");
+	argv = p;
 
 	if (strcmp (action, "add") == 0)
 	{
-		return _daemon_action_add (self, argv, message);
+		ret = _daemon_action_add (self, argv, message);
 	}
 	else if (strcmp (action, "list") == 0 || strcmp (action, "ls") == 0)
 	{
-		return _daemon_action_list (self, message);
+		ret = _daemon_action_list (self, message);
 	}
 	else if (strcmp (action, "move") == 0 || strcmp (action, "mv") == 0)
 	{
-		return _daemon_action_move (self, argv, message);
+		ret = _daemon_action_move (self, argv, message);
 	}
 	else if (strcmp (action, "pause") == 0)
 	{
-		return _daemon_action_pause (self, argv, message);
+		ret = _daemon_action_pause (self, argv, message);
 	}
 	else if (strcmp (action, "remove") == 0 || strcmp (action, "rm") == 0)
 	{
-		return _daemon_action_remove (self, argv, message);
+		ret = _daemon_action_remove (self, argv, message);
 	}
 	else if (strcmp (action, "resume") == 0)
 	{
-		return _daemon_action_resume (self, argv, message);
+		ret = _daemon_action_resume (self, argv, message);
 	}
 	else if (strcmp (action, "terminate") == 0 || strcmp (action, "term") == 0)
 	{
-		return _daemon_action_kill (self, argv, message, SIGTERM);
+		ret = _daemon_action_kill (self, argv, message, SIGTERM);
 	}
 	else if (strcmp (action, "help") == 0 || strcmp (action, "usage") == 0)
 	{
-		return _daemon_action_help (self, argv, message);
+		ret = _daemon_action_help (self, argv, message);
 	}
 	else if (strcmp (action, "kill") == 0)
 	{
-		return _daemon_action_kill (self, argv, message, SIGKILL);
+		ret = _daemon_action_kill (self, argv, message, SIGKILL);
 	}
 	else if (strcmp (action, "exit") == 0)
 	{
 		daemon_stop (self);
 		/* FIXME: OK is never returned as daemon is stopped ... */
-		return OK;
+		ret = OK;
 	}
 	else if (strcmp (action, "debug") == 0)
 	{
 		logger_set_debugging (self->_log, 1);
-		return OK;
+		ret = OK;
 	}
 	else if (strcmp (action, "nodebug") == 0)
 	{
 		logger_set_debugging (self->_log, 0);
-		return OK;
+		ret = OK;
 	}
 	else
 	{
 		logger_log (self->_log, WARNING, "Unknown action: '%s'", line);
 	}
 
-	return KO;
+	/* Free stuff: */
+	free (action);
+	for (i = 0; i < argc; i++)
+		free (argv[i]);
+	free (argv);
+
+	return ret;
 }
 
 /*
