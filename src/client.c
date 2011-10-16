@@ -309,6 +309,8 @@ static int _client_daemon_running (Client * self)
 		exit (EXIT_FAILURE);
 	}
 
+	free (proc_path);
+
 	return 1;
 }
 
