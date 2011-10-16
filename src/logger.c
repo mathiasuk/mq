@@ -72,6 +72,8 @@ void logger_close (Logger * self)
 {
 	if (fclose (self->stream))
 		logger_log (self, CRITICAL, "logger_close:fclose");
+
+	free (self);
 }
 
 /* 

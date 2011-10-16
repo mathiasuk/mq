@@ -2,3 +2,6 @@
 - Check that the client doesn't send more than LINE_MAX characters
 - Add a shell mode to client
 - Add action: "remove all"
+- implement list_free(), and pslist_free() which should be called in daemon_stop
+- Check that each class as a free() of the main object in the destroy/free/stop...
+- Add daemon_destory function to free the daemon object, this should be called in daemon_stop and after daemon_run in client.c (as the daemon forks *after* setting up the logger) 
