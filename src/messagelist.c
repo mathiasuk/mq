@@ -33,6 +33,15 @@ MessageList * messagelist_new (void)
 	return list_new ();
 }
 
+/* Delete and free the list
+ * args: MessageList
+ * return: void
+ */
+void messagelist_delete(MessageList * self)
+{
+	list_delete (self);
+}
+
 /* 
  * Wrapper around list_append ()
  * args:   MessageList, Message

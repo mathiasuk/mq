@@ -33,6 +33,15 @@ PsList * pslist_new (void)
 	return list_new ();
 }
 
+/* Delete and free the list
+ * args: PsList
+ * return: void
+ */
+void pslist_delete(PsList * self)
+{
+	list_delete (self);
+}
+
 /* 
  * Wrapper around list_append ()
  * args:   PsList, Process

@@ -44,6 +44,16 @@ List * list_new (void)
 	return list;
 }
 
+/* Delete and free the list
+ * args: List
+ * return: void
+ */
+void list_delete(List * self)
+{
+	free (self->_list);
+	free (self);
+}
+
 /*
  * Returns lenght of list
  * args:   List

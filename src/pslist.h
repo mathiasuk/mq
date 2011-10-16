@@ -28,6 +28,7 @@ typedef List PsList;
 
 /* Wrappers to List's methods */
 PsList * pslist_new (void);
+void pslist_delete(PsList * self);
 int pslist_append (PsList * self, Process * process);
 int pslist_remove (List * self, Process * process);
 Process * pslist_get_ps (PsList * self, int index);
