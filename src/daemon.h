@@ -37,6 +37,7 @@ struct _Daemon
 	char * _pid_path;
 	Logger * _log;
 	char * _log_path;
+	short int _running;		/* whether the daemon is running or not */
 	int _epfd;				/* epoll fd */
 	PsList * _pslist;		/* Process list, these should only be accessed while
 							   signals are blocked with _daemon_block_signals */
@@ -46,7 +47,7 @@ struct _Daemon
 };
 
 Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path);
+void daemon_delete (Daemon * self);
 void daemon_run (Daemon * self);
-void daemon_stop (Daemon * self);
 
 #endif /* DAEMON_H */

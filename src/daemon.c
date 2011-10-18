@@ -128,6 +128,8 @@ Daemon * daemon_new (char * sock_path, char * pid_path, char * log_path)
 	if (daemon->_epfd < 0)
 		logger_log (daemon->_log, CRITICAL, "daemon_new:epoll_create");
 
+	daemon->_running = 0;
+
 	/* We want to be notified when there is data to read */
 	bzero (&event, sizeof(struct epoll_event));
 	event.data.fd = daemon->_sock;
@@ -167,6 +169,8 @@ void daemon_run (Daemon * self)
 	/* Daemonize */
 	if (_daemon_daemonize (self))
 		return ;	/* In Client */
+	else
+		self->_running = 1;
 	 
 	events = malloc0 (sizeof (struct epoll_event) * MAX_EVENTS);
 
@@ -288,37 +292,45 @@ void daemon_run (Daemon * self)
 }
 
 /* 
- * Stop the daemon
+ * Stop and delete the daemon
  * args:   Daemon
  * return: void
  */
-void daemon_stop (Daemon * self)
+void daemon_delete (Daemon * self)
 {
-	/* Block signals */
-	_daemon_block_signals (self);
 
-	/* Terminate all running processes */
-	if (_daemon_kill_pg (self, SIGTERM))
-		logger_log (self->_log, CRITICAL, "daemon_run:_daemon_kill_pg");
+	if (self->_running) {
+		/* Block signals */
+		_daemon_block_signals (self);
 
-	logger_log (self->_log, INFO, "Shutting daemon down");
+		/* Terminate all running processes */
+		if (_daemon_kill_pg (self, SIGTERM))
+			logger_log (self->_log, CRITICAL, "daemon_delete:_daemon_kill_pg");
 
-	/* Close the socket */
-	if (close (self->_sock) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_run:close");
+		logger_log (self->_log, INFO, "Shutting daemon down");
 
-	/* Unlink the socket's path */
-    if (unlink (self->_sock_path) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_stop:unlink '%s'", self->_sock_path);
+		/* Close the socket */
+		if (close (self->_sock) == -1)
+			logger_log (self->_log, CRITICAL, "daemon_delete:close");
 
-	/* Unlink the pid file */
-    if (unlink (self->_pid_path) == -1)
-		logger_log (self->_log, CRITICAL, "daemon_stop:unlink '%s'", self->_pid_path);
+		/* Unlink the socket's path */
+		if (unlink (self->_sock_path) == -1)
+			logger_log (self->_log, CRITICAL, "daemon_delete:unlink '%s'", self->_sock_path);
 
-	/* Close the logger */
-	logger_close (self->_log);
+		/* Unlink the pid file */
+		if (unlink (self->_pid_path) == -1)
+			logger_log (self->_log, CRITICAL, "daemon_delete:unlink '%s'", self->_pid_path);
 
-	exit (EXIT_SUCCESS);
+		/* Close the logger */
+		logger_close (self->_log);
+	}
+
+	/* Free up memory */
+	pslist_delete (self->_pslist);
+	messagelist_delete (self->_mlist);
+
+	if (self->_running)
+		exit (EXIT_SUCCESS);
 }
 
 /* Private methods */
@@ -632,7 +644,7 @@ static MessageType _daemon_parse_line (Daemon * self, char * line,
 	}
 	else if (strcmp (action, "exit") == 0)
 	{
-		daemon_stop (self);
+		daemon_delete (self);
 		/* FIXME: OK is never returned as daemon is stopped ... */
 		ret = OK;
 	}
@@ -1265,5 +1277,5 @@ void sigterm_handler (int signum)
 {
 	extern Daemon * d;
 	logger_log (d->_log, DEBUG, "caught SIGTERM");
-	daemon_stop (d);
+	daemon_delete (d);
 }

@@ -123,6 +123,9 @@ void client_run (Client * self)
 		/* Run the daemon */
 		daemon_run (d);	
 
+		/* The daemon has now forked, we can then free the local "copy" */
+		daemon_delete (d);
+
 		printf (" done\n");
 	}
 
