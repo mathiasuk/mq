@@ -28,7 +28,7 @@ typedef List MessageList;
 
 /* Wrappers to List's methods */
 MessageList * messagelist_new (void);
-void messagelist_delete(MessageList * self);
+void messagelist_delete (MessageList * self);
 int messagelist_append (MessageList * self, Message * message);
 int messagelist_remove (MessageList * self, Message * message);
 Message * messagelist_get_message (MessageList * self, int index);

@@ -37,7 +37,7 @@ MessageList * messagelist_new (void)
  * args: MessageList
  * return: void
  */
-void messagelist_delete(MessageList * self)
+void messagelist_delete (MessageList * self)
 {
 	list_delete (self);
 }
